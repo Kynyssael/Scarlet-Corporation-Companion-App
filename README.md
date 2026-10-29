@@ -2,6 +2,28 @@
 
 A Dalamud plugin (internal name `Scarlet`, command `/scarlet`) for bartenders in FFXIV: tap + next to each drink as you sell it, and at the end of the night it tells you how much you owe the venue. Keeps a history of nights and a staff roster.
 
+## Install (staff)
+
+1. In game, `/xlsettings` → **Experimental** → **Custom Plugin Repositories**, paste
+   `https://raw.githubusercontent.com/Kynyssael/Scarlet-Corporation-Companion-App/main/repo.json`,
+   tick **Enabled**, then **Save**.
+2. `/xlplugins` → search **Scarlet Corporation Companion App** → **Install**.
+
+Dalamud updates it like any other plugin when a new version is released.
+
+## Releasing a new version
+
+Push a version tag; [the Release workflow](.github/workflows/release.yml) does the rest:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+It builds against the current Dalamud, attaches `latest.zip` to a GitHub release, and
+commits the new version to `repo.json`. Tags are `vMAJOR.MINOR.PATCH`; the plugin version
+becomes `MAJOR.MINOR.PATCH.0`, and it must go up for Dalamud to offer the update.
+
 ## Build
 
 Requires the .NET 10 SDK and XIVLauncher/Dalamud installed (the SDK finds Dalamud in `%APPDATA%\XIVLauncher\addon\Hooks\dev`).

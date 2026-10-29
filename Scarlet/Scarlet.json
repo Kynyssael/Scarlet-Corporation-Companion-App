@@ -4,5 +4,7 @@
   "Punchline": "The bartender's register for Scarlet Corporation venues.",
   "Description": "Sign in with your staff Discord account, tap + next to each drink as you sell it, and see what you owe the venue at the end of the night. The menu and staff come from the Scarlet Corporation website, and night reports are sent back to it.",
   "ApplicableVersion": "any",
+  "RepoUrl": "https://github.com/Kynyssael/Scarlet-Corporation-Companion-App",
+  "IconUrl": "https://raw.githubusercontent.com/Kynyssael/Scarlet-Corporation-Companion-App/main/Scarlet/images/icon.png",
   "Tags": [ "venue", "bar", "pos", "roleplay", "utility" ]
 }

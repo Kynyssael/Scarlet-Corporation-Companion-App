@@ -1,0 +1,67 @@
+# Builds the plugin when a version tag is pushed (e.g. v0.1.0), attaches latest.zip to a
+# GitHub release, and updates repo.json so Dalamud offers the new version.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # Dalamud.NET.Sdk builds against the Dalamud install in %AppData%\XIVLauncher\addon\Hooks\dev.
+      - name: Download Dalamud
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://goatcorp.github.io/dalamud-distrib/latest.zip -OutFile dalamud.zip
+          Expand-Archive -Force dalamud.zip "$env:AppData\XIVLauncher\addon\Hooks\dev"
+
+      - name: Work out the version from the tag
+        id: version
+        shell: pwsh
+        run: |
+          # v0.1.0 -> 0.1.0.0 (Dalamud wants four parts)
+          $parts = '${{ github.ref_name }}'.TrimStart('v').Split('.')
+          while ($parts.Count -lt 4) { $parts += '0' }
+          "version=$($parts -join '.')" >> $env:GITHUB_OUTPUT
+
+      - name: Build
+        run: dotnet build Scarlet/Scarlet.csproj -c Release -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Scarlet/bin/Release/Scarlet/latest.zip
+          generate_release_notes: true
+
+      # repo.json is the built manifest plus where to download it.
+      - name: Update repo.json
+        shell: pwsh
+        run: |
+          # The tag is checked out detached; commit repo.json on top of main.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout -B main origin/main
+
+          $manifest = Get-Content Scarlet/bin/Release/Scarlet/Scarlet.json -Raw | ConvertFrom-Json
+          $zip = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/latest.zip"
+          $manifest | Add-Member -Force NoteProperty DownloadLinkInstall $zip
+          $manifest | Add-Member -Force NoteProperty DownloadLinkTesting $zip
+          $manifest | Add-Member -Force NoteProperty DownloadLinkUpdate $zip
+          $manifest | Add-Member -Force NoteProperty LastUpdate ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())
+          ConvertTo-Json -InputObject @($manifest) -Depth 5 | Set-Content repo.json -Encoding utf8NoBOM
+
+          git add repo.json
+          git commit -m "repo.json: ${{ github.ref_name }}"
+          git push origin main
