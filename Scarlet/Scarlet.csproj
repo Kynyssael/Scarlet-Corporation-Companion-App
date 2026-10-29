@@ -1,0 +1,24 @@
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Version>0.1.0.0</Version>
+    <!-- Shown name. The assembly/internal name stays "Scarlet" so the config folder, saved sign-in and nights carry over. -->
+    <Product>Scarlet Corporation Companion App</Product>
+    <AssemblyTitle>Scarlet Corporation Companion App</AssemblyTitle>
+    <Description>Bar management and point-of-sale for roleplay venues.</Description>
+    <PackageProjectUrl></PackageProjectUrl>
+    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Encrypts the saved sign-in with the Windows user's key (DPAPI). -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Plugin icon (the Scarlet Corporation logo). Dalamud reads images/icon.png next to the DLL. -->
+    <Content Include="images\icon.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
