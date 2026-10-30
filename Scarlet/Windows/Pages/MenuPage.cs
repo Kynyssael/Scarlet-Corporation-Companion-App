@@ -1,4 +1,6 @@
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
+using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility.Raii;
 using Scarlet.Models;
 
@@ -15,15 +17,16 @@ public class MenuPage(Plugin plugin)
         var menu = plugin.Configuration.Menu;
         var changed = false;
 
+        Theme.PageHeader("Menu", $"{menu.Count(m => m.Available)} of {menu.Count} on the register · edit website items in the site's admin");
         SyncControls.Draw(plugin);
-
-        if (ImGui.Button("Add local item"))
+        ImGui.SameLine();
+        if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Plus, "Add local item"))
         {
             menu.Add(new MenuItem { Name = "New item", Category = "Local" });
             changed = true;
         }
 
-        using (var table = ImRaii.Table("##menu", 6, ImGuiTableFlags.RowBg | ImGuiTableFlags.Resizable | ImGuiTableFlags.ScrollY))
+        using (var table = ImRaii.Table("##menu", 6, ImGuiTableFlags.RowBg | ImGuiTableFlags.Resizable | ImGuiTableFlags.ScrollY | ImGuiTableFlags.BordersInnerH | ImGuiTableFlags.PadOuterX))
         {
             if (table.Success)
             {
@@ -33,7 +36,7 @@ public class MenuPage(Plugin plugin)
                 ImGui.TableSetupColumn("Category");
                 ImGui.TableSetupColumn("Price", ImGuiTableColumnFlags.WidthFixed, 110);
                 ImGui.TableSetupColumn("Description");
-                ImGui.TableSetupColumn("##del", ImGuiTableColumnFlags.WidthFixed, 40);
+                ImGui.TableSetupColumn("##del", ImGuiTableColumnFlags.WidthFixed, 50);
                 ImGui.TableHeadersRow();
 
                 MenuItem? toRemove = null;
@@ -84,7 +87,8 @@ public class MenuPage(Plugin plugin)
         ImGui.TableNextColumn();
         ImGui.Text(item.Category);
         ImGui.TableNextColumn();
-        ImGui.Text(plugin.FormatGil(item.Price));
+        using (ImRaii.PushColor(ImGuiCol.Text, Theme.Gold))
+            ImGui.Text(plugin.FormatGil(item.Price));
         if (item.Price == 0 && ImGui.IsItemHovered())
             ImGui.SetTooltip($"Could not read a price from \"{item.PriceText}\"");
         ImGui.TableNextColumn();
@@ -92,7 +96,7 @@ public class MenuPage(Plugin plugin)
         if (item.Description.Length > 0 && ImGui.IsItemHovered())
             ImGui.SetTooltip(item.Description);
         ImGui.TableNextColumn();
-        ImGui.TextDisabled("web");
+        Theme.Pill("web", Theme.Muted);
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("From the website. Edit it in the site's admin, then sync.");
     }
@@ -116,7 +120,7 @@ public class MenuPage(Plugin plugin)
         changed |= EditText("##desc", item.Description, 256, v => item.Description = v);
 
         ImGui.TableNextColumn();
-        if (ImGui.SmallButton("X") && ImGui.GetIO().KeyCtrl)
+        if (ImGuiComponents.IconButton("delete", FontAwesomeIcon.Trash) && ImGui.GetIO().KeyCtrl)
             toRemove = item;
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Ctrl+click to delete");

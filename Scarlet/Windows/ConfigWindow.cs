@@ -1,5 +1,6 @@
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using Scarlet.Services;
@@ -9,6 +10,7 @@ namespace Scarlet.Windows;
 public class ConfigWindow : Window, IDisposable
 {
     private readonly Plugin plugin;
+    private readonly Theme.Scope theme = new();
 
     public ConfigWindow(Plugin plugin) : base("Scarlet Corporation Companion App Settings###ScarletConfig")
     {
@@ -20,35 +22,21 @@ public class ConfigWindow : Window, IDisposable
 
     public void Dispose() { }
 
+    public override void PreDraw() => theme.Push();
+    public override void PostDraw() => theme.Pop();
+
     public override void Draw()
     {
         var config = plugin.Configuration;
         var changed = false;
 
-        ImGui.TextDisabled("Account");
+        Theme.SectionLabel("Account");
         AccountControls.Draw(plugin);
 
-        ImGui.Separator();
-        ImGui.TextDisabled("Scarlet Corporation website");
+        ImGuiHelpers.ScaledDummy(4);
+        Theme.SectionLabel("Scarlet Corporation website");
 
-        var state = plugin.Auth.State;
-        using (var combo = ImRaii.Combo("Venue", ScarletWebClient.VenueName(config.VenueSlug)))
-        {
-            if (combo.Success)
-            {
-                foreach (var (slug, name) in ScarletWebClient.Venues)
-                {
-                    var label = !state.AccessFor(slug).Any ? $"{name} (no access)" : name;
-                    if (ImGui.Selectable($"{label}##{slug}", slug == config.VenueSlug) && slug != config.VenueSlug)
-                    {
-                        config.VenueSlug = slug;
-                        changed = true;
-                        // Load that venue's menu and staff straight away.
-                        plugin.WebSync.Sync();
-                    }
-                }
-            }
-        }
+        VenuePicker.Draw(plugin);
 
         var url = config.WebsiteUrl;
         if (ImGui.InputText("Website", ref url, 256))
@@ -66,8 +54,8 @@ public class ConfigWindow : Window, IDisposable
 
         SyncControls.Draw(plugin);
 
-        ImGui.Separator();
-        ImGui.TextDisabled("Register");
+        ImGuiHelpers.ScaledDummy(4);
+        Theme.SectionLabel("Register");
 
         var suffix = config.CurrencySuffix;
         if (ImGui.InputText("Currency suffix", ref suffix, 16))

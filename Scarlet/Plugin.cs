@@ -30,6 +30,9 @@ public sealed class Plugin : IDalamudPlugin
     public GameItems GameItems { get; } = new();
     public VenueNights VenueNights { get; }
     public RoomLocks RoomLocks { get; }
+    public VipList Vips { get; }
+    public BanList Bans { get; }
+    public ShiftList Shifts { get; }
 
     public readonly WindowSystem WindowSystem = new("Scarlet");
     private MainWindow MainWindow { get; }
@@ -43,13 +46,18 @@ public sealed class Plugin : IDalamudPlugin
 
         Pos = new PosService(this, new PosStore(PluginInterface.GetPluginConfigDirectory()));
         Auth = new AuthService(this, PluginInterface.GetPluginConfigDirectory());
-        Reports = new ReportUploader(this);
+        // Before Reports: the uploader starts sending at once and refreshes VenueNights when a night goes through.
         VenueNights = new VenueNights(this);
+        Reports = new ReportUploader(this);
         RoomLocks = new RoomLocks(this);
+        Vips = new VipList(this);
+        Bans = new BanList(this);
+        Shifts = new ShiftList(this);
         WebSync = new WebSyncService(this);
         if (Configuration.SyncOnStartup)
             WebSync.Sync();
 
+        Theme.LoadFonts(PluginInterface.UiBuilder.FontAtlas);
         MainWindow = new MainWindow(this);
         ConfigWindow = new ConfigWindow(this);
         WindowSystem.AddWindow(MainWindow);
@@ -75,11 +83,15 @@ public sealed class Plugin : IDalamudPlugin
         WindowSystem.RemoveAllWindows();
         MainWindow.Dispose();
         ConfigWindow.Dispose();
+        Theme.Dispose();
 
         WebSync.Dispose();
         Reports.Dispose();
         VenueNights.Dispose();
         RoomLocks.Dispose();
+        Vips.Dispose();
+        Bans.Dispose();
+        Shifts.Dispose();
         Auth.Dispose();
         Pos.Save();
     }

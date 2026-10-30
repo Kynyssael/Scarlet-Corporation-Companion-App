@@ -150,6 +150,8 @@ public sealed class ReportUploader : IDisposable
                 // Voided before it was ever sent: tell the site on the next pass.
                 n.VoidPending = n.Voided;
             });
+            // Show it in management's History straight away, not on the next 2-minute reload.
+            plugin.VenueNights.MarkStale();
             return;
         }
 
@@ -211,15 +213,28 @@ public sealed class ReportUploader : IDisposable
     private static NightBody ToBody(Night night) => new()
     {
         Id = night.Id.ToString(),
+        Kind = night.Kind,
         Bartender = night.Bartender,
         StartedAt = new DateTimeOffset(night.StartedAt),
         EndedAt = new DateTimeOffset(night.EndedAt ?? night.StartedAt),
-        Lines = night.Lines.Select(l => new LineBody { Name = l.Name, UnitPrice = l.UnitPrice, Quantity = l.Quantity }).ToList(),
+        Lines = night.Lines.Select(l => new LineBody
+        {
+            Name = l.Name,
+            UnitPrice = l.UnitPrice,
+            Quantity = l.Quantity,
+            Buyer = l.Buyer,
+            Room = l.Room,
+            StartedAt = l.StartedAt is { } start ? new DateTimeOffset(start) : null,
+            EndedAt = l.EndedAt is { } end ? new DateTimeOffset(end) : null,
+            Rate = l.Rate,
+            Minutes = l.Minutes,
+        }).ToList(),
     };
 
     private class NightBody
     {
         [JsonPropertyName("id")] public string Id { get; set; } = string.Empty;
+        [JsonPropertyName("kind")] public string Kind { get; set; } = Night.Bar;
         [JsonPropertyName("bartender")] public string Bartender { get; set; } = string.Empty;
         [JsonPropertyName("started_at")] public DateTimeOffset StartedAt { get; set; }
         [JsonPropertyName("ended_at")] public DateTimeOffset EndedAt { get; set; }
@@ -231,5 +246,13 @@ public sealed class ReportUploader : IDisposable
         [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
         [JsonPropertyName("unit_price")] public int UnitPrice { get; set; }
         [JsonPropertyName("quantity")] public int Quantity { get; set; }
+
+        // Court sessions: the site works the price out again from the rate and the minutes bought.
+        [JsonPropertyName("buyer")] [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Buyer { get; set; }
+        [JsonPropertyName("room")] [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Room { get; set; }
+        [JsonPropertyName("started_at")] [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public DateTimeOffset? StartedAt { get; set; }
+        [JsonPropertyName("ended_at")] [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public DateTimeOffset? EndedAt { get; set; }
+        [JsonPropertyName("rate")] [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? Rate { get; set; }
+        [JsonPropertyName("minutes")] [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? Minutes { get; set; }
     }
 }

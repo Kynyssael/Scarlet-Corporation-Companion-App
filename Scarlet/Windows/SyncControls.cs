@@ -1,4 +1,6 @@
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
+using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility.Raii;
 
 namespace Scarlet.Windows;
@@ -11,11 +13,12 @@ public static class SyncControls
         var sync = plugin.WebSync;
         using (ImRaii.Disabled(sync.Syncing))
         {
-            if (ImGui.Button(sync.Syncing ? "Syncing..." : "Sync from website"))
+            if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.CloudDownloadAlt, sync.Syncing ? "Syncing..." : "Sync from website"))
                 sync.Sync();
         }
 
         ImGui.SameLine();
+        ImGui.AlignTextToFramePadding();
         if (sync.Status.Length > 0)
             ImGui.TextDisabled(sync.Status);
         else if (plugin.Configuration.LastSyncedAt is { } last)

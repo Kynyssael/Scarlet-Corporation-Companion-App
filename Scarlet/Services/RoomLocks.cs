@@ -62,7 +62,7 @@ public sealed class RoomLocks : IDisposable
         loadedAt = DateTime.Now;
         Loading = true;
 
-        Run(async () =>
+        _ = Run(async () =>
         {
             try
             {
@@ -82,23 +82,34 @@ public sealed class RoomLocks : IDisposable
     }
 
     /// <summary>Locks a room under the bartender's character name. Management can take over a locked room with force.</summary>
-    public void Lock(RoomDto room, string note, bool force = false) =>
-        Change(room, HttpMethod.Post, new LockBody { Name = Plugin.LocalPlayerName() ?? string.Empty, Note = note, Force = force });
+    public void Lock(RoomDto room, string note, bool force = false) => _ = LockAsync(room.Id, note, force);
 
-    public void Unlock(RoomDto room) => Change(room, HttpMethod.Delete, null);
+    public void Unlock(RoomDto room) => _ = UnlockAsync(room.Id);
 
-    private void Change(RoomDto room, HttpMethod method, LockBody? body)
+    /// <summary>
+    /// True once the website has the room locked for us; false (with <see cref="Error"/> set) if not.
+    /// Call on the main thread: it reads the character name.
+    /// </summary>
+    public Task<bool> LockAsync(int roomId, string note, bool force = false) =>
+        Change(roomId, HttpMethod.Post, new LockBody { Name = Plugin.LocalPlayerName() ?? string.Empty, Note = note, Force = force });
+
+    public Task<bool> UnlockAsync(int roomId) => Change(roomId, HttpMethod.Delete, null);
+
+    private Task<bool> Change(int roomId, HttpMethod method, LockBody? body)
     {
         if (Busy != null)
-            return;
-        Busy = room.Id;
+        {
+            Error = "Another room is being locked or unlocked; try again in a moment.";
+            return Task.FromResult(false);
+        }
+        Busy = roomId;
         var venue = loadedVenue ?? plugin.Configuration.VenueSlug;
 
-        Run(async () =>
+        return Run(async () =>
         {
             try
             {
-                using var request = await AuthorizedAsync(method, $"{RoomsUrl(venue)}/{room.Id}/lock");
+                using var request = await AuthorizedAsync(method, $"{RoomsUrl(venue)}/{roomId}/lock");
                 if (body != null)
                     request.Content = JsonContent.Create(body);
                 using var response = await http.SendAsync(request, disposing.Token);
@@ -116,16 +127,19 @@ public sealed class RoomLocks : IDisposable
         });
     }
 
-    private void Run(Func<Task> work) => _ = Task.Run(async () =>
+    /// <summary>Runs work in the background; true when it succeeded, otherwise the reason is in <see cref="Error"/>.</summary>
+    private Task<bool> Run(Func<Task> work) => Task.Run(async () =>
     {
         try
         {
             await work();
             Error = null;
+            return true;
         }
         catch (Exception ex) when (!disposing.IsCancellationRequested)
         {
             Error = ex.Message;
+            return false;
         }
     });
 

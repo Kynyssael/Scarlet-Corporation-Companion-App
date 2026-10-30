@@ -27,6 +27,22 @@ public class Configuration : IPluginConfiguration
     public List<MenuItem> Menu { get; set; } = [];
     public List<StaffMember> Staff { get; set; } = [];
 
+    /// <summary>The selected venue's photo sessions and prices, from the website (Admin › Photo prices).</summary>
+    public List<PhotoPackage> PhotoPackages { get; set; } = [];
+
+    public const int DefaultPhotoCut = 30;
+
+    /// <summary>The selected venue's house cut of photo sales, in percent (Admin › Photo prices; read when signed in).</summary>
+    public int PhotoCut { get; set; } = DefaultPhotoCut;
+
+    /// <summary>The selected venue's court services and hourly rates, from the website (Admin › Court rates).</summary>
+    public List<CourtService> CourtServices { get; set; } = [];
+
+    public const int DefaultCourtCut = 30;
+
+    /// <summary>The selected venue's house cut of court sales, in percent (Admin › Court rates; read when signed in).</summary>
+    public int CourtCut { get; set; } = DefaultCourtCut;
+
     /// <summary>
     /// Staff saved before entries had a venue: website ones are dropped (the next sync adds them back
     /// under the right venue), hand-added ones go to the selected venue. Returns true if anything changed.

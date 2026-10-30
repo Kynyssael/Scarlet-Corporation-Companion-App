@@ -9,14 +9,11 @@ using Scarlet.Services;
 namespace Scarlet.Windows.Pages;
 
 /// <summary>
-/// Management only: every bartender's nights at the selected venue, from the website.
-/// Tick Paid when a bartender hands over the gil; the website admin shows the same.
+/// Management only: every bartender's, photographer's and court's nights at the selected venue, from the
+/// website. Tick Paid when they hand over the gil; the website admin shows the same.
 /// </summary>
 public class HistoryPage(Plugin plugin)
 {
-    private static readonly Vector4 Rose = new(1f, 0.62f, 0.66f, 1f);
-    private static readonly Vector4 Green = new(0.45f, 0.85f, 0.55f, 1f);
-
     private static readonly (string Key, string Label)[] Filters =
         [("unpaid", "Not paid"), ("paid", "Paid"), ("voided", "Voided"), ("all", "Everything")];
 
@@ -30,14 +27,11 @@ public class HistoryPage(Plugin plugin)
         DrawHeader(source);
 
         if (source.Error != null)
-        {
-            using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(1f, 0.45f, 0.45f, 1f)))
-                ImGui.TextWrapped(source.Error);
-        }
+            Theme.ErrorText(source.Error);
 
         if (source.Nights is not { } nights)
         {
-            ImGui.TextDisabled(source.Loading ? "Loading nights from the website..." : "Nothing loaded yet.");
+            Theme.Empty(source.Loading ? "Loading nights from the website..." : "Nothing loaded yet.", FontAwesomeIcon.Moon);
             return;
         }
 
@@ -48,56 +42,69 @@ public class HistoryPage(Plugin plugin)
 
     private void DrawHeader(VenueNights source)
     {
-        ImGui.Text($"{ScarletWebClient.VenueName(plugin.Configuration.VenueSlug)} nights");
-        ImGui.SameLine();
-        ImGui.TextDisabled(source.Loading ? "refreshing..." : source.UpdatedAt is { } at ? $"from the website, {at:t}" : string.Empty);
-
-        ImGui.SameLine(ImGui.GetContentRegionMax().X - 90 * ImGuiHelpers.GlobalScale);
-        using (ImRaii.Disabled(source.Loading))
-        {
-            if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.SyncAlt, "Refresh", ImGuiHelpers.ScaledVector2(90, 0)))
-                source.Refresh();
-        }
+        var refresh = 90 * ImGuiHelpers.GlobalScale;
+        Theme.PageHeader($"{ScarletWebClient.VenueName(plugin.Configuration.VenueSlug)} nights",
+            source.Loading ? "refreshing..." : source.UpdatedAt is { } at ? $"from the website, {at:t}" : null,
+            refresh, () =>
+            {
+                using (ImRaii.Disabled(source.Loading))
+                {
+                    if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.SyncAlt, "Refresh", new Vector2(refresh, 0)))
+                        source.Refresh();
+                }
+            });
     }
 
-    /// <summary>What each bartender still has to hand over to management: nights not paid and not voided.</summary>
+    /// <summary>What each person still has to hand over to management: nights not paid and not voided.</summary>
     private void DrawOwed(IReadOnlyList<NightReportDto> nights)
     {
         var owed = nights.Where(n => Matches(n, "unpaid"))
             .GroupBy(n => n.Who)
-            .Select(g => (Name: g.Key, Total: g.Sum(n => n.Total), Count: g.Count()))
+            .Select(g => (Name: g.Key, Total: g.Sum(n => n.Owed), Count: g.Count()))
             .OrderByDescending(o => o.Total)
             .ToList();
 
-        using var box = ImRaii.Child("##owed", new Vector2(0, ImGui.GetTextLineHeightWithSpacing() * (Math.Max(owed.Count, 1) + 1) + ImGui.GetStyle().WindowPadding.Y * 2), true);
+        var style = ImGui.GetStyle();
+        var rows = Math.Max(owed.Count, 1) + (owed.Count > 1 ? 1 : 0);
+        var height = ImGui.GetTextLineHeightWithSpacing() * (rows + 1) + style.WindowPadding.Y * 2;
+        using var box = Theme.Card("##owed", new Vector2(0, height));
         if (!box.Success)
             return;
+        Theme.CardAccent(owed.Count == 0 ? Theme.Green : Theme.Gold);
 
-        using (ImRaii.PushColor(ImGuiCol.Text, Rose))
-            ImGui.Text("Owed to the venue");
+        Theme.SectionLabel("Owed to the venue");
         if (owed.Count == 0)
         {
-            using (ImRaii.PushColor(ImGuiCol.Text, Green))
-                ImGui.Text("Nothing owed: every bartender has handed in their gil.");
+            Theme.Icon(FontAwesomeIcon.CheckCircle, Theme.Green);
+            ImGui.SameLine();
+            using (ImRaii.PushColor(ImGuiCol.Text, Theme.Green))
+                ImGui.Text("Nothing owed: everyone has handed in their gil.");
             return;
         }
 
         foreach (var (name, total, count) in owed)
         {
+            Theme.Dot(Theme.Gold);
+            ImGui.SameLine();
             ImGui.Text(name);
             ImGui.SameLine();
-            ImGui.TextDisabled(count == 1 ? "(1 night)" : $"({count} nights)");
-            RightAligned(plugin.FormatGil(total));
+            ImGui.TextDisabled(count == 1 ? "1 night" : $"{count} nights");
+            RightAligned(plugin.FormatGil(total), Theme.Gold);
+        }
+
+        if (owed.Count > 1)
+        {
+            ImGui.TextDisabled("Total");
+            RightAligned(plugin.FormatGil(owed.Sum(o => o.Total)), Theme.Gold);
         }
     }
 
     private void DrawFilters(IReadOnlyList<NightReportDto> nights)
     {
+        ImGuiHelpers.ScaledDummy(2);
         foreach (var (key, label) in Filters)
         {
-            var active = filter == key;
-            using var colors = ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.70f, 0.07f, 0.12f, 1f), active);
-            if (ImGui.Button($"{label} ({nights.Count(n => Matches(n, key))})"))
+            if (Theme.Chip($"{label} ({nights.Count(n => Matches(n, key))})", filter == key))
                 filter = key;
             ImGui.SameLine();
         }
@@ -108,18 +115,18 @@ public class HistoryPage(Plugin plugin)
     {
         if (nights.Count == 0)
         {
-            ImGui.TextDisabled("Nothing here.");
+            Theme.Empty("Nothing here.", FontAwesomeIcon.Moon);
             return;
         }
 
-        using var table = ImRaii.Table("##history", 6, ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.Resizable);
+        using var table = ImRaii.Table("##history", 6, ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.Resizable | ImGuiTableFlags.BordersInnerH | ImGuiTableFlags.PadOuterX);
         if (!table.Success)
             return;
 
         ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableSetupColumn("Night", ImGuiTableColumnFlags.WidthFixed, 130 * ImGuiHelpers.GlobalScale);
-        ImGui.TableSetupColumn("Bartender");
-        ImGui.TableSetupColumn("Sold", ImGuiTableColumnFlags.WidthFixed, 70 * ImGuiHelpers.GlobalScale);
+        ImGui.TableSetupColumn("Staff");
+        ImGui.TableSetupColumn("Sold", ImGuiTableColumnFlags.WidthFixed, 150 * ImGuiHelpers.GlobalScale);
         ImGui.TableSetupColumn("Owed", ImGuiTableColumnFlags.WidthFixed, 110 * ImGuiHelpers.GlobalScale);
         ImGui.TableSetupColumn("Paid", ImGuiTableColumnFlags.WidthFixed, 40 * ImGuiHelpers.GlobalScale);
         ImGui.TableSetupColumn("##void", ImGuiTableColumnFlags.WidthFixed, 60 * ImGuiHelpers.GlobalScale);
@@ -142,12 +149,24 @@ public class HistoryPage(Plugin plugin)
                 ImGui.SetTooltip($"Signed in as {night.StaffName}");
 
             ImGui.TableNextColumn();
-            ImGui.Text($"{night.ItemCount} items");
+            // A tag for what kind of night it was, then how much was sold.
+            Theme.Pill(night.Kind switch { "photo" => "Photo", "court" => "Court", _ => "Bar" },
+                night.Kind switch { "photo" => Theme.Rose, "court" => Theme.Gold, _ => Theme.Muted });
+            ImGui.SameLine();
+            ImGui.Text(night.Kind switch
+            {
+                "photo" => $"{night.ItemCount} photos",
+                "court" => $"{night.ItemCount} sessions",
+                _ => $"{night.ItemCount} items",
+            });
             if (ImGui.IsItemHovered())
-                ImGui.SetTooltip(string.Join("\n", night.Lines.Select(l => $"{l.Quantity}x {l.Name}  {plugin.FormatGil(l.UnitPrice * l.Quantity)}")));
+                ImGui.SetTooltip(string.Join("\n", night.Lines.Select(l => l.Describe(plugin.FormatGil))));
 
             ImGui.TableNextColumn();
-            ImGui.Text(plugin.FormatGil(night.Total));
+            using (ImRaii.PushColor(ImGuiCol.Text, night.Paid || night.Voided ? ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled] : Theme.Gold))
+                ImGui.Text(plugin.FormatGil(night.Owed));
+            if (night.HouseCut != 100 && ImGui.IsItemHovered())
+                ImGui.SetTooltip($"{night.HouseCut}% house cut of {plugin.FormatGil(night.Total)} in sales");
 
             ImGui.TableNextColumn();
             var paid = night.Paid;
@@ -173,9 +192,10 @@ public class HistoryPage(Plugin plugin)
         _ => !night.Voided && !night.Paid,
     };
 
-    private static void RightAligned(string text)
+    private static void RightAligned(string text, Vector4 color)
     {
         ImGui.SameLine(ImGui.GetContentRegionMax().X - ImGui.CalcTextSize(text).X);
-        ImGui.Text(text);
+        using (ImRaii.PushColor(ImGuiCol.Text, color))
+            ImGui.Text(text);
     }
 }

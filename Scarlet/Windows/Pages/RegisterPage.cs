@@ -15,15 +15,6 @@ namespace Scarlet.Windows.Pages;
 /// </summary>
 public class RegisterPage(Plugin plugin)
 {
-    // Scarlet Corporation red (#b3121f) and shades of it.
-    private static readonly Vector4 Scarlet = new(0.70f, 0.07f, 0.12f, 1f);
-    private static readonly Vector4 ScarletHover = new(0.82f, 0.15f, 0.20f, 1f);
-    private static readonly Vector4 ScarletActive = new(0.58f, 0.04f, 0.09f, 1f);
-    private static readonly Vector4 Rose = new(1f, 0.62f, 0.66f, 1f);
-    private static readonly Vector4 SoldRowTint = new(0.70f, 0.07f, 0.12f, 0.16f);
-    private static readonly Vector4 Amber = new(1f, 0.75f, 0.3f, 1f);
-    private static readonly Vector4 OutOfStock = new(1f, 0.45f, 0.45f, 1f);
-
     /// <summary>Fewer than this many in bags shows the count in amber.</summary>
     private const int LowStock = 5;
 
@@ -49,7 +40,7 @@ public class RegisterPage(Plugin plugin)
 
         ImGui.SameLine();
 
-        using (var receipt = ImRaii.Child("##registerReceipt", Vector2.Zero, true))
+        using (var receipt = Theme.Card("##registerReceipt", Vector2.Zero))
         {
             if (receipt.Success)
                 DrawReceipt();
@@ -65,7 +56,7 @@ public class RegisterPage(Plugin plugin)
         var available = plugin.Configuration.Menu.Where(m => m.Available).ToList();
         if (available.Count == 0)
         {
-            ImGui.TextDisabled("The menu is empty. Sync it from the website in settings.");
+            Theme.Empty("The menu is empty. Sync it from the website in settings.", FontAwesomeIcon.GlassMartiniAlt);
             return;
         }
 
@@ -77,7 +68,7 @@ public class RegisterPage(Plugin plugin)
 
         if (shown.Count == 0)
         {
-            ImGui.TextDisabled("Nothing matches.");
+            Theme.Empty("Nothing matches.", FontAwesomeIcon.Search);
             return;
         }
 
@@ -94,9 +85,8 @@ public class RegisterPage(Plugin plugin)
         {
             ImGui.TableNextRow();
             ImGui.TableSetColumnIndex(1);
-            ImGuiHelpers.ScaledDummy(2);
-            using (ImRaii.PushColor(ImGuiCol.Text, Rose))
-                ImGui.Text(group.Key.ToUpperInvariant());
+            ImGuiHelpers.ScaledDummy(4);
+            Theme.SectionLabel(group.Key);
 
             foreach (var item in group)
                 DrawItemRow(item);
@@ -140,17 +130,13 @@ public class RegisterPage(Plugin plugin)
             }
         }
 
-        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(2);
         return shown;
     }
 
     private static void Chip(string label, bool active, Action select)
     {
-        using var colors = ImRaii.PushColor(ImGuiCol.Button, Scarlet, active)
-            .Push(ImGuiCol.ButtonHovered, ScarletHover, active)
-            .Push(ImGuiCol.ButtonActive, ScarletActive, active);
-        using var rounding = ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 10 * ImGuiHelpers.GlobalScale);
-        if (ImGui.Button(label))
+        if (Theme.Chip(label, active))
             select();
     }
 
@@ -163,7 +149,7 @@ public class RegisterPage(Plugin plugin)
 
         ImGui.TableNextRow(ImGuiTableRowFlags.None, rowHeight);
         if (sold > 0)
-            ImGui.TableSetBgColor(ImGuiTableBgTarget.RowBg0, ImGui.GetColorU32(SoldRowTint));
+            ImGui.TableSetBgColor(ImGuiTableBgTarget.RowBg0, ImGui.GetColorU32(Theme.CardTint));
 
         // In-game item icon.
         ImGui.TableNextColumn();
@@ -212,7 +198,7 @@ public class RegisterPage(Plugin plugin)
         ImGui.SetCursorPos(new Vector2(cursor.X + (countWidth - ImGui.CalcTextSize(countText).X) / 2, cursor.Y + (rowHeight - ImGui.GetTextLineHeight()) / 2));
         if (sold > 0)
         {
-            using (ImRaii.PushColor(ImGuiCol.Text, Rose))
+            using (ImRaii.PushColor(ImGuiCol.Text, Theme.Rose))
                 ImGui.Text(countText);
         }
         else
@@ -222,7 +208,7 @@ public class RegisterPage(Plugin plugin)
 
         ImGui.SameLine();
         ImGui.SetCursorPos(new Vector2(cursor.X + countWidth + ImGui.GetStyle().ItemSpacing.X, cursor.Y));
-        if (ImGuiComponents.IconButton("plus", FontAwesomeIcon.Plus, Scarlet, ScarletActive, ScarletHover, button))
+        if (ImGuiComponents.IconButton("plus", FontAwesomeIcon.Plus, Theme.Scarlet, Theme.ScarletActive, Theme.ScarletHover, button))
             plugin.Pos.Sell(item, 1);
     }
 
@@ -238,7 +224,7 @@ public class RegisterPage(Plugin plugin)
         }
 
         var carried = plugin.GameItems.CountInBags(gameItem.Id);
-        using (ImRaii.PushColor(ImGuiCol.Text, carried == 0 ? OutOfStock : carried < LowStock ? Amber : ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]))
+        using (ImRaii.PushColor(ImGuiCol.Text, carried == 0 ? Theme.Red : carried < LowStock ? Theme.Amber : ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]))
             ImGui.Text(carried == 0 ? "none in bags" : $"{carried} in bags");
     }
 
@@ -300,17 +286,13 @@ public class RegisterPage(Plugin plugin)
     {
         var night = plugin.Pos.CurrentNight;
 
-        using (ImRaii.PushColor(ImGuiCol.Text, Rose))
-            ImGui.Text("Tonight");
-        ImGui.SameLine();
-        ImGui.TextDisabled(night != null ? $"since {night.StartedAt:t}" : "nothing sold yet");
-        ImGui.Separator();
+        Theme.PageHeader("Tonight", night != null ? $"since {night.StartedAt:t}" : "nothing sold yet");
 
-        DrawUnsentNotice();
+        UnsentNotice.Draw(plugin);
 
         var style = ImGui.GetStyle();
-        var footer = ImGui.GetTextLineHeight() * 1.8f + ImGui.GetTextLineHeightWithSpacing() * 2
-                     + ImGui.GetFrameHeightWithSpacing() * 2 + style.ItemSpacing.Y * 3 + style.WindowPadding.Y;
+        // The End night button is a little taller than the rest.
+        var footer = Theme.OwedHeight() + ImGui.GetFrameHeightWithSpacing() * 2.3f + style.ItemSpacing.Y * 3 + style.WindowPadding.Y;
 
         using (var lines = ImRaii.Child("##receiptLines", new Vector2(0, -footer), false))
         {
@@ -318,50 +300,15 @@ public class RegisterPage(Plugin plugin)
                 DrawReceiptLines(night);
         }
 
-        ImGui.Separator();
+        Theme.Rule();
         DrawTotals(night);
-    }
-
-    /// <summary>
-    /// Only shown when an ended night hasn't reached the website, so the bartender can resend it.
-    /// Bartenders don't get the full History; management does.
-    /// </summary>
-    private void DrawUnsentNotice()
-    {
-        var refused = plugin.Pos.Nights.Where(n => n.UploadError != null).ToList();
-        var waiting = plugin.Pos.Nights.Count(n => n.UploadError == null && n.UploadedAt == null);
-        if (refused.Count == 0 && waiting == 0)
-            return;
-
-        if (refused.Count > 0)
-        {
-            using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(1f, 0.45f, 0.45f, 1f)))
-                ImGui.TextWrapped(refused.Count == 1 ? "A night report couldn't be sent." : $"{refused.Count} night reports couldn't be sent.");
-            if (ImGui.IsItemHovered())
-            {
-                using var tooltip = ImRaii.Tooltip();
-                foreach (var night in refused)
-                    ImGui.Text($"{night.StartedAt:g}: {night.UploadError}");
-            }
-        }
-        else
-        {
-            ImGui.TextDisabled(waiting == 1 ? "Last night's report is waiting to send." : $"{waiting} night reports are waiting to send.");
-            if (plugin.Reports.Status.Length > 0 && ImGui.IsItemHovered())
-                ImGui.SetTooltip(plugin.Reports.Status);
-        }
-
-        if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.PaperPlane, refused.Count > 0 ? "Try again" : "Send now", new Vector2(ImGui.GetContentRegionAvail().X, 0)))
-            plugin.Reports.RetryRefused();
-        ImGui.Separator();
     }
 
     private void DrawReceiptLines(Night? night)
     {
         if (night == null || night.Lines.Count == 0)
         {
-            ImGui.TextDisabled("Tap + next to a drink");
-            ImGui.TextDisabled("each time you sell one.");
+            Theme.Empty("Tap + next to a drink each time you sell one.", FontAwesomeIcon.GlassMartiniAlt);
             return;
         }
 
@@ -376,7 +323,7 @@ public class RegisterPage(Plugin plugin)
         {
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
-            using (ImRaii.PushColor(ImGuiCol.Text, Rose))
+            using (ImRaii.PushColor(ImGuiCol.Text, Theme.Rose))
                 ImGui.Text($"{line.Quantity}x");
             ImGui.SameLine();
             ImGui.TextWrapped(line.Name);
@@ -387,16 +334,7 @@ public class RegisterPage(Plugin plugin)
 
     private void DrawTotals(Night? night)
     {
-        ImGui.TextDisabled("You owe the venue");
-
-        using (ImRaii.PushColor(ImGuiCol.Text, Rose))
-        {
-            ImGui.SetWindowFontScale(1.8f);
-            ImGui.Text(plugin.FormatGil(night?.Total ?? 0));
-            ImGui.SetWindowFontScale(1f);
-        }
-
-        ImGui.TextDisabled($"{night?.ItemCount ?? 0} items sold");
+        Theme.Owed("You owe the venue", plugin.FormatGil(night?.Total ?? 0), $"{night?.ItemCount ?? 0} items sold");
 
         var width = ImGui.GetContentRegionAvail().X;
         var last = plugin.Pos.LastSold;
@@ -408,10 +346,8 @@ public class RegisterPage(Plugin plugin)
 
         using (ImRaii.Disabled(night == null || night.Lines.Count == 0))
         {
-            using var colors = ImRaii.PushColor(ImGuiCol.Button, Scarlet)
-                .Push(ImGuiCol.ButtonHovered, ScarletHover)
-                .Push(ImGuiCol.ButtonActive, ScarletActive);
-            if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Moon, "End night", new Vector2(width, 0)))
+            using var colors = Theme.Primary();
+            if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Moon, "End night", new Vector2(width, ImGui.GetFrameHeight() * 1.3f)))
                 openEndNight = true;
         }
     }
@@ -433,13 +369,13 @@ public class RegisterPage(Plugin plugin)
         ImGui.Text($"You sold {night?.ItemCount ?? 0} items tonight.");
         ImGui.Text("You owe the venue");
         ImGui.SameLine();
-        using (ImRaii.PushColor(ImGuiCol.Text, Rose))
+        using (ImRaii.PushColor(ImGuiCol.Text, Theme.Gold))
             ImGui.Text(plugin.FormatGil(night?.Total ?? 0));
         ImGui.TextDisabled("The night is saved to History and sent to the website.");
         ImGuiHelpers.ScaledDummy(4);
 
         var button = ImGuiHelpers.ScaledVector2(120, 0);
-        using (ImRaii.PushColor(ImGuiCol.Button, Scarlet).Push(ImGuiCol.ButtonHovered, ScarletHover).Push(ImGuiCol.ButtonActive, ScarletActive))
+        using (Theme.Primary())
         {
             if (ImGui.Button("End night", button))
             {

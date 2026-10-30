@@ -6,17 +6,34 @@ using System.Text.Json;
 namespace Scarlet.Services;
 
 /// <summary>
-/// What the signed-in person can open for one venue. Matches the website's checks:
-/// bartenders and management send nights, photographers and management lock rooms.
+/// What the signed-in person can open for one venue. Matches the website's checks: each job sends
+/// its own kind of night and locks its own kind of room; management does all of it.
 /// </summary>
-/// <param name="Register">The register and night reports ("bartender" or "management").</param>
-/// <param name="Rooms">Locking service rooms ("photographer" or "management").</param>
+/// <param name="Register">The bar register ("bartender" or "management").</param>
+/// <param name="Photos">The photo register and photo rooms ("photographer" or "management").</param>
+/// <param name="Court">Court session timers and private rooms ("court" or "management").</param>
 /// <param name="Manage">History, Menu, Staff ("management").</param>
-public readonly record struct Access(bool Register, bool Rooms, bool Manage)
+public readonly record struct Access(bool Register, bool Photos, bool Court, bool Manage)
 {
     public static readonly Access None = default;
 
-    public bool Any => Register || Rooms || Manage;
+    /// <summary>The Rooms tab: anyone who locks rooms.</summary>
+    public bool Rooms => Photos || Court;
+
+    public bool Any => Register || Photos || Court || Manage;
+
+    public static readonly Access Everything = new(Register: true, Photos: true, Court: true, Manage: true);
+}
+
+/// <summary>Role to preview the plugin as, in dev builds (see <see cref="AuthService.ViewAs"/>).</summary>
+public enum DevRole
+{
+    Real,
+    Bartender,
+    Photographer,
+    Court,
+    Management,
+    NoRole,
 }
 
 /// <summary>Snapshot of who is signed in. Replaced as a whole so the UI never sees a half-updated state.</summary>
@@ -40,11 +57,13 @@ public record AuthState(string? Name, IReadOnlyList<string> Roles, DateTime? Che
     {
         if (!IsStaffOf(venue))
             return Access.None;
-        var manager = Roles.Contains("management");
+        if (Roles.Contains("management"))
+            return Access.Everything;
         return new Access(
-            Register: manager || Roles.Contains("bartender"),
-            Rooms: manager || Roles.Contains("photographer"),
-            Manage: manager);
+            Register: Roles.Contains("bartender"),
+            Photos: Roles.Contains("photographer"),
+            Court: Roles.Contains("court"),
+            Manage: false);
     }
 }
 
@@ -106,7 +125,28 @@ public sealed class AuthService : IDisposable
         http.Dispose();
     }
 
-    public Access CurrentAccess => State.AccessFor(plugin.Configuration.VenueSlug);
+    /// <summary>
+    /// Dev plugins only: show the plugin as this role would see it. Not saved, and the website still
+    /// checks the real roles, so actions beyond what the account really has are refused.
+    /// </summary>
+    public DevRole ViewAs { get; set; } = DevRole.Real;
+
+    public Access CurrentAccess
+    {
+        get
+        {
+            if (!Plugin.PluginInterface.IsDev || ViewAs == DevRole.Real || !State.SignedIn)
+                return State.AccessFor(plugin.Configuration.VenueSlug);
+            return ViewAs switch
+            {
+                DevRole.Bartender => Access.None with { Register = true },
+                DevRole.Photographer => Access.None with { Photos = true },
+                DevRole.Court => Access.None with { Court = true },
+                DevRole.Management => Access.Everything,
+                _ => Access.None,
+            };
+        }
+    }
 
     public void SignIn()
     {

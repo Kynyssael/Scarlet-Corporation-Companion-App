@@ -46,6 +46,9 @@ public sealed class VenueNights : IDisposable
             Refresh();
     }
 
+    /// <summary>A night was just sent or changed: reload next time History is drawn.</summary>
+    public void MarkStale() => loadedAt = DateTime.MinValue;
+
     public void Refresh()
     {
         if (Loading)
@@ -162,6 +165,7 @@ public record NightReportDto
 {
     [JsonPropertyName("id")] public int Id { get; init; }
     [JsonPropertyName("client_id")] public string ClientId { get; init; } = string.Empty;
+    [JsonPropertyName("kind")] public string Kind { get; init; } = "bar";
     [JsonPropertyName("staff_name")] public string StaffName { get; init; } = string.Empty;
     [JsonPropertyName("bartender")] public string Bartender { get; init; } = string.Empty;
     [JsonPropertyName("started_at")] public DateTimeOffset StartedAt { get; init; }
@@ -169,6 +173,14 @@ public record NightReportDto
     [JsonPropertyName("lines")] public List<NightLineDto> Lines { get; init; } = [];
     [JsonPropertyName("item_count")] public int ItemCount { get; init; }
     [JsonPropertyName("total")] public long Total { get; init; }
+
+    /// <summary>The house's percent of the total (100 for bar nights) and what that comes to.</summary>
+    [JsonPropertyName("house_cut")] public int HouseCut { get; init; } = 100;
+    [JsonPropertyName("owed")] public long? OwedOnSite { get; init; }
+
+    /// <summary>What the seller owes the venue; the whole total from a site without house cuts.</summary>
+    // Not a JSON field: "owed" is OwedOnSite, and names are matched ignoring case.
+    [JsonIgnore] public long Owed => OwedOnSite ?? Total;
     [JsonPropertyName("voided")] public bool Voided { get; init; }
     [JsonPropertyName("paid")] public bool Paid { get; init; }
 
@@ -184,4 +196,15 @@ public record NightLineDto
     [JsonPropertyName("name")] public string Name { get; init; } = string.Empty;
     [JsonPropertyName("unit_price")] public long UnitPrice { get; init; }
     [JsonPropertyName("quantity")] public int Quantity { get; init; }
+
+    // Court sessions only.
+    [JsonPropertyName("buyer")] public string? Buyer { get; init; }
+    [JsonPropertyName("room")] public string? Room { get; init; }
+    [JsonPropertyName("started_at")] public DateTimeOffset? StartedAt { get; init; }
+    [JsonPropertyName("minutes")] public int? Minutes { get; init; }
+
+    /// <summary>One line of the hover list in History.</summary>
+    public string Describe(Func<long, string> gil) => StartedAt is { } start
+        ? $"{start.ToLocalTime():t}  {Name} with {Buyer}{(string.IsNullOrEmpty(Room) ? "" : $" in {Room}")}, {(Minutes ?? 0) / 60}h{(Minutes ?? 0) % 60:00}  {gil(UnitPrice)}"
+        : $"{Quantity}x {Name}  {gil(UnitPrice * Quantity)}";
 }

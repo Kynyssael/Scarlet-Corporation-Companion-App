@@ -42,8 +42,9 @@ public sealed class WebSyncService(Plugin plugin) : IDisposable
             try
             {
                 var venue = await client.FetchVenueAsync(baseUrl, slug, token);
+                var settings = await FetchSettingsAsync(baseUrl, slug, token);
                 // Config lists are read by the UI every frame; change them on the main thread.
-                await Plugin.Framework.RunOnFrameworkThread(() => Apply(venue, slug));
+                await Plugin.Framework.RunOnFrameworkThread(() => Apply(venue, settings, slug));
             }
             catch (Exception ex) when (!token.IsCancellationRequested)
             {
@@ -62,7 +63,24 @@ public sealed class WebSyncService(Plugin plugin) : IDisposable
         }, token);
     }
 
-    private void Apply(VenueDto venue, string slug)
+    /// <summary>The staff-only settings (photo cut). Null when signed out, not staff there, or unreachable: the saved ones stay.</summary>
+    private async Task<VenueSettingsDto?> FetchSettingsAsync(string baseUrl, string slug, CancellationToken ct)
+    {
+        if (!plugin.Auth.State.IsStaffOf(slug))
+            return null;
+        try
+        {
+            var accessToken = await plugin.Auth.GetAccessTokenAsync(ct);
+            return accessToken == null ? null : await client.FetchSettingsAsync(baseUrl, slug, accessToken, ct);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            Plugin.Log.Warning(ex, "Couldn't read the venue settings");
+            return null;
+        }
+    }
+
+    private void Apply(VenueDto venue, VenueSettingsDto? settings, string slug)
     {
         var config = plugin.Configuration;
         // The venue was switched while this was downloading; the queued sync fetches the right one.
@@ -90,6 +108,31 @@ public sealed class WebSyncService(Plugin plugin) : IDisposable
 
         config.Menu = [.. remote, .. local];
 
+        // Photo prices are management's to set on the site; the plugin only reads them.
+        var previousPhotos = config.PhotoPackages.ToDictionary(p => p.RemoteId);
+        config.PhotoPackages = venue.Photos.Where(p => !string.IsNullOrWhiteSpace(p.Name)).OrderBy(p => p.Sort).ThenBy(p => p.Id).Select(dto =>
+        {
+            var photo = previousPhotos.GetValueOrDefault(dto.Id) ?? new PhotoPackage { RemoteId = dto.Id };
+            photo.Name = dto.Name;
+            photo.Price = (int)Math.Clamp(dto.Price, 0, int.MaxValue);
+            photo.Description = dto.Description;
+            return photo;
+        }).ToList();
+        config.CourtServices = venue.Court.Where(c => !string.IsNullOrWhiteSpace(c.Name)).OrderBy(c => c.Sort).ThenBy(c => c.Id)
+            .Select(dto => new CourtService
+            {
+                RemoteId = dto.Id,
+                Name = dto.Name,
+                Rate = (int)Math.Clamp(dto.Rate, 0, int.MaxValue),
+                Description = dto.Description,
+            }).ToList();
+
+        if (settings != null)
+        {
+            config.PhotoCut = Math.Clamp(settings.PhotoCut, 0, 100);
+            config.CourtCut = Math.Clamp(settings.CourtCut, 0, 100);
+        }
+
         // Staff belong to the venue being synced. People taken off that venue's Staff page on the
         // site are dropped here too; entries added by hand in the plugin stay.
         var remoteStaff = venue.Staff.Where(s => !string.IsNullOrWhiteSpace(s.Name)).ToList();
@@ -114,6 +157,6 @@ public sealed class WebSyncService(Plugin plugin) : IDisposable
         config.LastSyncedAt = DateTime.Now;
         plugin.SaveConfig();
 
-        Status = $"Synced {remote.Count} menu items, {added} new staff at {DateTime.Now:t}.";
+        Status = $"Synced {remote.Count} menu items, {config.PhotoPackages.Count} photo prices, {config.CourtServices.Count} court rates,{added} new staff at {DateTime.Now:t}.";
     }
 }

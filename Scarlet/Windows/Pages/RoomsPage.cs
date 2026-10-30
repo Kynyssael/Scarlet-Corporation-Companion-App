@@ -14,14 +14,7 @@ namespace Scarlet.Windows.Pages;
 /// </summary>
 public class RoomsPage(Plugin plugin)
 {
-    private static readonly Vector4 Scarlet = new(0.70f, 0.07f, 0.12f, 1f);
-    private static readonly Vector4 ScarletHover = new(0.82f, 0.15f, 0.20f, 1f);
-    private static readonly Vector4 ScarletActive = new(0.58f, 0.04f, 0.09f, 1f);
-    private static readonly Vector4 Rose = new(1f, 0.62f, 0.66f, 1f);
-    private static readonly Vector4 Green = new(0.45f, 0.85f, 0.55f, 1f);
-    private static readonly Vector4 Red = new(1f, 0.45f, 0.45f, 1f);
-
-    // What the photographer typed as a note for each room, before locking it.
+    // What was typed as a note for each room, before locking it.
     private readonly Dictionary<int, string> notes = [];
 
     public void Draw()
@@ -32,30 +25,31 @@ public class RoomsPage(Plugin plugin)
         DrawHeader(source);
 
         if (source.Error != null)
-        {
-            using (ImRaii.PushColor(ImGuiCol.Text, Red))
-                ImGui.TextWrapped(source.Error);
-        }
+            Theme.ErrorText(source.Error);
 
-        if (source.Rooms is not { } rooms)
+        if (source.Rooms is not { } loaded)
         {
-            ImGui.TextDisabled(source.Loading ? "Loading rooms from the website..." : "Nothing loaded yet.");
+            Theme.Empty(source.Loading ? "Loading rooms from the website..." : "Nothing loaded yet.", FontAwesomeIcon.DoorClosed);
             return;
         }
 
+        var manager = plugin.Auth.CurrentAccess.Manage;
+        // The website already only sends photographers photo rooms and courts private rooms; filter
+        // here too so the dev "View as" previews on a management account match.
+        var rooms = loaded.Where(r => Visible(r.Kind)).ToList();
+
         if (rooms.Count == 0)
         {
-            // The website only sends photographers the photo rooms.
-            ImGui.TextDisabled(plugin.Auth.CurrentAccess.Manage
-                ? "This venue has no service rooms yet. Add them in the website admin (Service rooms)."
-                : "This venue has no photo rooms yet. Management adds them in the website admin (Service rooms).");
+            Theme.Empty($"This venue has no {RoomsWord()} yet. {(manager ? "Add them" : "Management adds them")} in the website admin (Service rooms).", FontAwesomeIcon.DoorClosed);
             return;
         }
 
         var mine = rooms.Where(r => r.Mine).ToList();
         if (mine.Count > 0)
         {
-            using (ImRaii.PushColor(ImGuiCol.Text, Rose))
+            Theme.Icon(FontAwesomeIcon.Key, Theme.Rose);
+            ImGui.SameLine();
+            using (ImRaii.PushColor(ImGuiCol.Text, Theme.Rose))
                 ImGui.TextWrapped($"You have {string.Join(", ", mine.Select(r => r.Name))} locked. Unlock when you're done.");
         }
 
@@ -63,37 +57,58 @@ public class RoomsPage(Plugin plugin)
         if (!list.Success)
             return;
 
-        var manager = plugin.Auth.CurrentAccess.Manage;
-        // Photo rooms first: they're what photographers come here for.
+        // Photo rooms first, then private rooms.
         foreach (var room in rooms.OrderBy(r => r.Kind == "photo" ? 0 : 1))
             DrawRoom(room, source, manager);
     }
 
+    // Photographers deal with photo rooms, courts with private rooms, management with both.
+    private bool Visible(string kind)
+    {
+        var access = plugin.Auth.CurrentAccess;
+        return kind == "photo" ? access.Photos : access.Court;
+    }
+
+    private string RoomsWord() => (Visible("photo"), Visible("private")) switch
+    {
+        (true, false) => "photo rooms",
+        (false, true) => "private rooms",
+        _ => "rooms",
+    };
+
     private void DrawHeader(RoomLocks source)
     {
-        ImGui.Text($"{ScarletWebClient.VenueName(plugin.Configuration.VenueSlug)} {(plugin.Auth.CurrentAccess.Manage ? "rooms" : "photo rooms")}");
-        ImGui.SameLine();
-        ImGui.TextDisabled(source.Loading ? "refreshing..." : source.UpdatedAt is { } at ? $"from the website, {at:t}" : string.Empty);
-
-        ImGui.SameLine(ImGui.GetContentRegionMax().X - 90 * ImGuiHelpers.GlobalScale);
-        using (ImRaii.Disabled(source.Loading))
-        {
-            if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.SyncAlt, "Refresh", ImGuiHelpers.ScaledVector2(90, 0)))
-                source.Refresh();
-        }
-        ImGui.Separator();
+        var refresh = 90 * ImGuiHelpers.GlobalScale;
+        Theme.PageHeader($"{ScarletWebClient.VenueName(plugin.Configuration.VenueSlug)} {RoomsWord()}",
+            source.Loading ? "refreshing..." : source.UpdatedAt is { } at ? $"from the website, {at:t}" : null,
+            refresh, () =>
+            {
+                using (ImRaii.Disabled(source.Loading))
+                {
+                    if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.SyncAlt, "Refresh", new Vector2(refresh, 0)))
+                        source.Refresh();
+                }
+            });
     }
 
     private void DrawRoom(RoomDto room, RoomLocks source, bool manager)
     {
         using var id = ImRaii.PushId(room.Id);
-        var height = ImGui.GetTextLineHeightWithSpacing() * 3 + ImGui.GetFrameHeightWithSpacing() + ImGui.GetStyle().WindowPadding.Y * 2;
-        using var card = ImRaii.Child("##room", new Vector2(0, height), true);
+        float nameLine;
+        using (Theme.NameFont())
+            nameLine = ImGui.GetTextLineHeight();
+        var style = ImGui.GetStyle();
+        var height = nameLine + ImGui.GetTextLineHeightWithSpacing() * 2 + ImGui.GetFrameHeight() + style.ItemSpacing.Y * 2 + style.WindowPadding.Y * 2;
+        using var card = Theme.Card("##room", new Vector2(0, height), room.Mine);
         if (!card.Success)
             return;
 
+        var status = !room.Locked ? Theme.Green : room.Mine ? Theme.Rose : Theme.Red;
+        Theme.CardAccent(status);
+
         // Name and type tag.
-        ImGui.Text(room.Name);
+        using (Theme.NameFont())
+            ImGui.Text(room.Name);
         if (room.Description.Length > 0 && ImGui.IsItemHovered())
         {
             using var tooltip = ImRaii.Tooltip();
@@ -101,24 +116,18 @@ public class RoomsPage(Plugin plugin)
             ImGui.Text(room.Description);
         }
         ImGui.SameLine();
-        using (ImRaii.PushColor(ImGuiCol.Text, room.Kind == "photo" ? Rose : ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]))
-            ImGui.Text($"[{room.KindLabel}]");
+        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + (nameLine - ImGui.GetTextLineHeight()) / 2);
+        Theme.Pill(room.KindLabel, room.Kind == "photo" ? Theme.Rose : Theme.Gold);
 
         // Status.
-        if (!room.Locked)
+        Theme.Dot(status);
+        ImGui.SameLine();
+        using (ImRaii.PushColor(ImGuiCol.Text, status))
+            ImGui.Text(!room.Locked ? "Free" : room.Mine ? "Locked by you" : $"Locked by {room.LockedBy}");
+        if (room.Locked && room.LockedAt is { } since)
         {
-            using (ImRaii.PushColor(ImGuiCol.Text, Green))
-                ImGui.Text("Free");
-        }
-        else
-        {
-            using (ImRaii.PushColor(ImGuiCol.Text, room.Mine ? Rose : Red))
-                ImGui.Text(room.Mine ? "Locked by you" : $"Locked by {room.LockedBy}");
-            if (room.LockedAt is { } since)
-            {
-                ImGui.SameLine();
-                ImGui.TextDisabled($"since {since.ToLocalTime():t} ({Ago(since)})");
-            }
+            ImGui.SameLine();
+            ImGui.TextDisabled($"since {since.ToLocalTime():t} ({Ago(since)})");
         }
         if (room.Locked && room.LockedNote.Length > 0)
             ImGui.TextDisabled($"\"{room.LockedNote}\"");
@@ -140,7 +149,7 @@ public class RoomsPage(Plugin plugin)
             if (ImGui.InputTextWithHint("##note", "Note (optional), e.g. \"Shoot with Ayame until 10\"", ref note, 140))
                 notes[room.Id] = note;
             ImGui.SameLine();
-            using var colors = ImRaii.PushColor(ImGuiCol.Button, Scarlet).Push(ImGuiCol.ButtonHovered, ScarletHover).Push(ImGuiCol.ButtonActive, ScarletActive);
+            using var colors = Theme.Primary();
             if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Lock, busy ? "Locking..." : "Lock", new Vector2(ImGui.GetContentRegionAvail().X, 0)))
             {
                 source.Lock(room, note);

@@ -1,4 +1,7 @@
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
+using Dalamud.Interface.Components;
+using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Scarlet.Models;
 using Scarlet.Services;
@@ -17,28 +20,28 @@ public class StaffPage(Plugin plugin)
         var staff = config.Staff.Where(s => s.Venue == venue).ToList();
         var changed = false;
 
-        ImGui.TextDisabled($"{ScarletWebClient.VenueName(venue)} staff: {staff.Count(s => s.OnShift)} of {staff.Count} on site");
+        Theme.PageHeader($"{ScarletWebClient.VenueName(venue)} staff", $"{staff.Count(s => s.OnShift)} of {staff.Count} on site tonight");
 
-        ImGui.SetNextItemWidth(200);
+        ImGui.SetNextItemWidth(220 * ImGuiHelpers.GlobalScale);
         var submitted = ImGui.InputTextWithHint("##newStaff", "Character name", ref newName, 64, ImGuiInputTextFlags.EnterReturnsTrue);
         ImGui.SameLine();
-        if ((ImGui.Button("Add") || submitted) && newName.Trim().Length > 0)
+        if ((ImGuiComponents.IconButtonWithText(FontAwesomeIcon.UserPlus, "Add") || submitted) && newName.Trim().Length > 0)
         {
             changed |= Add(staff, newName.Trim(), venue);
             newName = string.Empty;
         }
         ImGui.SameLine();
-        if (ImGui.Button("Add me") && Plugin.LocalPlayerName() is { } me)
+        if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.User, "Add me") && Plugin.LocalPlayerName() is { } me)
             changed |= Add(staff, me, venue);
 
-        using (var table = ImRaii.Table("##staff", 4, ImGuiTableFlags.RowBg))
+        using (var table = ImRaii.Table("##staff", 4, ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerH | ImGuiTableFlags.PadOuterX))
         {
             if (table.Success)
             {
                 ImGui.TableSetupColumn("On site", ImGuiTableColumnFlags.WidthFixed, 60);
                 ImGui.TableSetupColumn("Name");
                 ImGui.TableSetupColumn("Role");
-                ImGui.TableSetupColumn("##del", ImGuiTableColumnFlags.WidthFixed, 30);
+                ImGui.TableSetupColumn("##del", ImGuiTableColumnFlags.WidthFixed, 50);
                 ImGui.TableHeadersRow();
 
                 StaffMember? toRemove = null;
@@ -52,6 +55,8 @@ public class StaffPage(Plugin plugin)
                     if (ImGui.Checkbox("##onSite", ref onSite)) { member.OnShift = onSite; changed = true; }
 
                     ImGui.TableNextColumn();
+                    Theme.Dot(member.OnShift ? Theme.Green : Theme.Muted with { W = 0.5f });
+                    ImGui.SameLine();
                     ImGui.Text(member.Name);
 
                     ImGui.TableNextColumn();
@@ -62,13 +67,13 @@ public class StaffPage(Plugin plugin)
                     ImGui.TableNextColumn();
                     if (member.FromWebsite)
                     {
-                        ImGui.TextDisabled("web");
+                        Theme.Pill("web", Theme.Muted);
                         if (ImGui.IsItemHovered())
                             ImGui.SetTooltip("From the venue's Staff page on the website; remove them there.");
                     }
                     else
                     {
-                        if (ImGui.SmallButton("X") && ImGui.GetIO().KeyCtrl)
+                        if (ImGuiComponents.IconButton("remove", FontAwesomeIcon.Trash) && ImGui.GetIO().KeyCtrl)
                             toRemove = member;
                         if (ImGui.IsItemHovered())
                             ImGui.SetTooltip("Ctrl+click to remove");
@@ -84,7 +89,7 @@ public class StaffPage(Plugin plugin)
         }
 
         if (staff.Count == 0)
-            ImGui.TextDisabled("No staff yet. Sync from the website, or add people above.");
+            Theme.Empty("No staff yet. Sync from the website, or add people above.", FontAwesomeIcon.Users);
 
         if (changed)
             plugin.SaveConfig();

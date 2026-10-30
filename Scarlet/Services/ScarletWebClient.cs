@@ -32,6 +32,16 @@ public sealed partial class ScarletWebClient : IDisposable
         return await http.GetFromJsonAsync<VenueDto>(url, ct) ?? throw new InvalidOperationException("Empty response");
     }
 
+    /// <summary>Staff-only venue settings (the house cut of photo sales): GET {base}/api/portal/{slug}/settings.</summary>
+    public async Task<VenueSettingsDto> FetchSettingsAsync(string baseUrl, string slug, string accessToken, CancellationToken ct = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl.TrimEnd('/')}/api/portal/{Uri.EscapeDataString(slug)}/settings");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+        using var response = await http.SendAsync(request, ct);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<VenueSettingsDto>(ct) ?? throw new InvalidOperationException("Empty response");
+    }
+
     /// <summary>
     /// The site stores prices as free text ("15,000 gil", "15k", "Free").
     /// Returns the amount in gil, or 0 when no number is found.
@@ -62,6 +72,37 @@ public class VenueDto
 {
     [JsonPropertyName("menu")] public List<MenuItemDto> Menu { get; set; } = [];
     [JsonPropertyName("staff")] public List<StaffDto> Staff { get; set; } = [];
+    [JsonPropertyName("photos")] public List<PhotoPackageDto> Photos { get; set; } = [];
+    [JsonPropertyName("court")] public List<CourtServiceDto> Court { get; set; } = [];
+}
+
+public class VenueSettingsDto
+{
+    /// <summary>The house's percent of photo sales.</summary>
+    [JsonPropertyName("photo_cut")] public int PhotoCut { get; set; } = Configuration.DefaultPhotoCut;
+
+    /// <summary>The house's percent of court sales.</summary>
+    [JsonPropertyName("court_cut")] public int CourtCut { get; set; } = Configuration.DefaultCourtCut;
+}
+
+/// <summary>A court service from the site's Admin › Court rates; rate is whole gil per hour.</summary>
+public class CourtServiceDto
+{
+    [JsonPropertyName("id")] public int Id { get; set; }
+    [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+    [JsonPropertyName("rate")] public long Rate { get; set; }
+    [JsonPropertyName("description")] public string Description { get; set; } = string.Empty;
+    [JsonPropertyName("sort")] public int Sort { get; set; }
+}
+
+/// <summary>A photo session from the site's Admin › Photo prices; price is whole gil.</summary>
+public class PhotoPackageDto
+{
+    [JsonPropertyName("id")] public int Id { get; set; }
+    [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+    [JsonPropertyName("price")] public long Price { get; set; }
+    [JsonPropertyName("description")] public string Description { get; set; } = string.Empty;
+    [JsonPropertyName("sort")] public int Sort { get; set; }
 }
 
 public class MenuItemDto
