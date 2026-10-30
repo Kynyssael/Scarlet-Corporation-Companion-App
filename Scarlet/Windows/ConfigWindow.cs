@@ -71,7 +71,77 @@ public class ConfigWindow : Window, IDisposable
             changed = true;
         }
 
+        if (plugin.Auth.CurrentAccess.Court)
+            changed |= DrawCourtBell(config);
+
         if (changed)
             plugin.SaveConfig();
+    }
+
+    /// <summary>The bell for court sessions running out. Returns true if anything changed.</summary>
+    private bool DrawCourtBell(Configuration config)
+    {
+        var changed = false;
+        ImGuiHelpers.ScaledDummy(4);
+        Theme.SectionLabel("Court");
+
+        var warning = config.CourtBellWarning;
+        if (ImGui.Checkbox("##bellWarning", ref warning))
+        {
+            config.CourtBellWarning = warning;
+            changed = true;
+        }
+        ImGui.SameLine();
+        ImGui.Text("Ring");
+        ImGui.SameLine();
+        var minutes = config.CourtBellMinutes;
+        ImGui.SetNextItemWidth(90 * ImGuiHelpers.GlobalScale);
+        using (ImRaii.Disabled(!warning))
+        {
+            if (ImGui.InputInt("##bellMinutes", ref minutes, 1, 5))
+            {
+                config.CourtBellMinutes = Math.Clamp(minutes, 1, 60);
+                changed = true;
+            }
+        }
+        ImGui.SameLine();
+        ImGui.Text("minutes before a session's time runs out");
+
+        var atEnd = config.CourtBellAtEnd;
+        if (ImGui.Checkbox("Ring again when the time runs out", ref atEnd))
+        {
+            config.CourtBellAtEnd = atEnd;
+            changed = true;
+        }
+
+        ImGui.SetNextItemWidth(160 * ImGuiHelpers.GlobalScale);
+        using (var combo = ImRaii.Combo("Sound", config.CourtBellSound == 0 ? "No sound" : $"<se.{config.CourtBellSound}>"))
+        {
+            if (combo.Success)
+            {
+                if (ImGui.Selectable("No sound (chat line and toast only)", config.CourtBellSound == 0))
+                {
+                    config.CourtBellSound = 0;
+                    changed = true;
+                }
+                for (var i = 1; i <= 16; i++)
+                {
+                    if (ImGui.Selectable($"<se.{i}>", config.CourtBellSound == i))
+                    {
+                        config.CourtBellSound = i;
+                        plugin.CourtBell.Ring(); // Let them hear what they picked.
+                        changed = true;
+                    }
+                }
+            }
+        }
+        ImGui.SameLine();
+        using (ImRaii.Disabled(config.CourtBellSound == 0))
+        {
+            if (ImGui.Button("Test"))
+                plugin.CourtBell.Ring();
+        }
+        ImGui.TextDisabled("Only you hear it. A chat line and a toast show too, in case your game sound is off.");
+        return changed;
     }
 }

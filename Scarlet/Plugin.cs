@@ -21,6 +21,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
     [PluginService] internal static IGameInventory GameInventory { get; private set; } = null!;
+    [PluginService] internal static IToastGui ToastGui { get; private set; } = null!;
 
     public Configuration Configuration { get; }
     public PosService Pos { get; }
@@ -33,6 +34,7 @@ public sealed class Plugin : IDalamudPlugin
     public VipList Vips { get; }
     public BanList Bans { get; }
     public ShiftList Shifts { get; }
+    public CourtBell CourtBell { get; }
 
     public readonly WindowSystem WindowSystem = new("Scarlet");
     private MainWindow MainWindow { get; }
@@ -53,6 +55,7 @@ public sealed class Plugin : IDalamudPlugin
         Vips = new VipList(this);
         Bans = new BanList(this);
         Shifts = new ShiftList(this);
+        CourtBell = new CourtBell(this);
         WebSync = new WebSyncService(this);
         if (Configuration.SyncOnStartup)
             WebSync.Sync();
@@ -92,6 +95,7 @@ public sealed class Plugin : IDalamudPlugin
         Vips.Dispose();
         Bans.Dispose();
         Shifts.Dispose();
+        CourtBell.Dispose();
         Auth.Dispose();
         Pos.Save();
     }

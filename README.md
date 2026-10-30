@@ -117,6 +117,12 @@ guide: OUT shows when the time bought runs out and how many minutes are left (re
 over), and **+30** adds time the client buys mid-session. Ctrl+click the bin to remove a
 session started by mistake.
 
+**Bell:** 10 minutes before a running session's time bought runs out, and again when it
+does, the plugin plays a chat chime (one of the game's `<se.1>`–`<se.16>`, heard only by the
+court), prints a line in their chat log and shows a toast, even with the window closed.
+Buying more time (+30) rings again before the new end. Courts change it in settings
+(**Court**: on/off, how many minutes before, ring at the end, which sound or none, **Test**).
+
 Services and their **hourly rates** are per venue in the site's **Admin › Court rates**,
 with the **house cut of court sales** (30% by default) at the top; they sync like the
 photo prices. **End night** (once no session is running) sends the sessions as a `court`

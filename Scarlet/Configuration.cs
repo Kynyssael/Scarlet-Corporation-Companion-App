@@ -43,6 +43,17 @@ public class Configuration : IPluginConfiguration
     /// <summary>The selected venue's house cut of court sales, in percent (Admin › Court rates; read when signed in).</summary>
     public int CourtCut { get; set; } = DefaultCourtCut;
 
+    /// <summary>Ring when a court session is <see cref="CourtBellMinutes"/> from the end of the time bought.</summary>
+    public bool CourtBellWarning { get; set; } = true;
+
+    public int CourtBellMinutes { get; set; } = 10;
+
+    /// <summary>Ring again when the time bought runs out.</summary>
+    public bool CourtBellAtEnd { get; set; } = true;
+
+    /// <summary>Which chat chime plays (the game's &lt;se.1&gt; to &lt;se.16&gt;); 0 shows the chat line and toast without a sound.</summary>
+    public int CourtBellSound { get; set; } = 6;
+
     /// <summary>
     /// Staff saved before entries had a venue: website ones are dropped (the next sync adds them back
     /// under the right venue), hand-added ones go to the selected venue. Returns true if anything changed.
