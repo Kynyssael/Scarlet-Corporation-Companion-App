@@ -1,6 +1,6 @@
 # Scarlet Corporation Companion App
 
-A Dalamud plugin (internal name `Scarlet`, command `/scarlet`): the staff app for Scarlet Corporation venues in FFXIV. Staff sign in with Discord and get the tabs for their role: the bar register, photos, court timers, rooms, VIPs and the blacklist, plus history, attendance and pay for management.
+A Dalamud plugin (internal name `Scarlet`, command `/scarlet`): the staff app for Scarlet Corporation venues in FFXIV. Staff sign in with Discord and get the tabs for their role: the bar register, photos, court timers, rooms and VIPs, plus the blacklist, history, attendance and pay for management.
 
 ## Install (staff)
 
@@ -151,18 +151,17 @@ VIPs are kept on the website per venue, so every manager sees the same list:
 `POST .../vips/<id>/renew` (`GET` for any staff of the venue, the rest management only;
 tables `vip_members` and `vip_purchases`).
 
-## Blacklist (all staff, management edits)
+## Blacklist (management only)
 
 The **Blacklist** tab lists who's banned from the selected venue, why, since when and until
-when, so the door and the bar know who not to serve. Every role sees it; ended bans are
-greyed out under **Ended**. Management bans someone with a name, reason, when the ban
+when. Only management sees the tab; ended bans are greyed out under **Ended**. Management bans someone with a name, reason, when the ban
 started (defaults to now) and how long: **Permanent**, 1 week, 1 month, 3 months, 6 months,
 1 year, or until a typed date. The pen changes a ban (including making it permanent or
 setting an end date), Ctrl+click on the unlock icon lifts it now (it stays on the list as
 ended), and Ctrl+click on the bin deletes it entirely.
 
-Bans are kept on the website per venue: `GET /api/portal/<venue>/blacklist` for any staff
-of the venue, `POST` and `PATCH`/`DELETE .../blacklist/<id>` for management (table
+Bans are kept on the website per venue: `GET`/`POST /api/portal/<venue>/blacklist` and
+`PATCH`/`DELETE .../blacklist/<id>`, all management only (table
 `blacklist`; `until` is null for a permanent ban).
 
 ## Attendance (management)
@@ -214,9 +213,9 @@ Portal. The realm address comes from `GET /api/portal/config`.
 | Roles | Can use |
 | --- | --- |
 | not signed in, no `staff-<venue>`, or none of `bartender`/`photographer`/`management` | nothing (sign-in or "bartenders and photographers only" screen) |
-| `staff-<venue>` + `bartender` | Register, VIP and Blacklist (read only), plus a resend notice for unsent nights |
-| `staff-<venue>` + `photographer` | Photos, Rooms (lock and unlock photo rooms only), VIP and Blacklist (read only) |
-| `staff-<venue>` + `court` | Court, Rooms (lock and unlock private rooms only), VIP and Blacklist (read only) |
+| `staff-<venue>` + `bartender` | Register, VIP (read only), plus a resend notice for unsent nights |
+| `staff-<venue>` + `photographer` | Photos, Rooms (lock and unlock photo rooms only), VIP (read only) |
+| `staff-<venue>` + `court` | Court, Rooms (lock and unlock private rooms only), VIP (read only) |
 | `staff-<venue>` + `management` | Register, Photos, Court, Rooms, VIP, Blacklist, History, Attendance, Menu, Staff; voiding nights, unlocking anyone's room, editing VIPs and the blacklist |
 
 **Sign in with Discord** opens the browser (authorization code + PKCE). Keycloak

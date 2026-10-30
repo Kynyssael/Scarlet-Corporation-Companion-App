@@ -9,8 +9,8 @@ using Scarlet.Services;
 namespace Scarlet.Windows.Pages;
 
 /// <summary>
-/// The venue's blacklist: who's banned, why, since when and until when. Every staff member sees it so
-/// the door and the bar know who not to serve; management adds, changes and lifts bans.
+/// The venue's blacklist: who's banned, why, since when and until when. Management only: the tab is
+/// hidden from other staff, and the website refuses to send it to them.
 /// </summary>
 public class BlacklistPage(Plugin plugin)
 {
@@ -74,8 +74,6 @@ public class BlacklistPage(Plugin plugin)
 
         if (manager)
             DrawAddForm(source);
-        else
-            ImGui.TextDisabled("Don't serve or let in anyone banned below. Management adds and lifts bans.");
 
         if (source.Bans is not { } bans)
         {

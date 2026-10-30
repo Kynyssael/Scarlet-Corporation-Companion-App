@@ -6,8 +6,7 @@ using System.Text.Json.Serialization;
 namespace Scarlet.Services;
 
 /// <summary>
-/// The selected venue's blacklist from the website. Every staff member can read it; only management
-/// changes it. GET/POST /api/portal/{venue}/blacklist, PATCH/DELETE .../blacklist/{id}.
+/// The selected venue's blacklist from the website. Management only, to read and to change. GET/POST /api/portal/{venue}/blacklist, PATCH/DELETE .../blacklist/{id}.
 /// </summary>
 public sealed class BanList : IDisposable
 {

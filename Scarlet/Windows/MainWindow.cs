@@ -83,14 +83,15 @@ public class MainWindow : Window, IDisposable
             DrawPage("Court", court.Draw);
         if (access.Rooms)
             DrawPage("Rooms", rooms.Draw);
-        // Everyone needs to know who's a VIP and who not to serve; management edits both.
+        // Everyone needs to know who's a VIP; management edits the list.
         // Management sees how many VIPs need renewing without opening the tab.
         var due = access.Manage ? vips.NeedRenewing : 0;
         DrawPage(due > 0 ? $"VIP ({due})###vip" : "VIP###vip", vips.Draw);
-        DrawPage("Blacklist", blacklist.Draw);
-        // Bartenders only see unsent nights, on the Register; the full history is for management.
+        // Bartenders only see unsent nights, on the Register; the full history is for management,
+        // and so is the blacklist.
         if (access.Manage)
         {
+            DrawPage("Blacklist", blacklist.Draw);
             DrawPage("History", history.Draw);
             DrawPage("Attendance", attendance.Draw);
             DrawPage("Menu", menu.Draw);
