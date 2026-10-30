@@ -3,7 +3,7 @@
     "Author": "Elenor",
     "Name": "Scarlet Corporation Companion App",
     "InternalName": "Scarlet",
-    "AssemblyVersion": "0.2.1.0",
+    "AssemblyVersion": "0.2.2.0",
     "Description": "The staff app for Scarlet Corporation venues. Sign in with your staff Discord account to get the tools for your role.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/Kynyssael/Scarlet-Corporation-Companion-App",
@@ -22,9 +22,9 @@
     "IconUrl": "https://raw.githubusercontent.com/Kynyssael/Scarlet-Corporation-Companion-App/main/Scarlet/images/icon.png",
     "Punchline": "The staff app for Scarlet Corporation venues.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/Kynyssael/Scarlet-Corporation-Companion-App/releases/download/v0.2.1/latest.zip",
-    "DownloadLinkTesting": "https://github.com/Kynyssael/Scarlet-Corporation-Companion-App/releases/download/v0.2.1/latest.zip",
-    "DownloadLinkUpdate": "https://github.com/Kynyssael/Scarlet-Corporation-Companion-App/releases/download/v0.2.1/latest.zip",
-    "LastUpdate": 1793370964
+    "DownloadLinkInstall": "https://github.com/Kynyssael/Scarlet-Corporation-Companion-App/releases/download/v0.2.2/latest.zip",
+    "DownloadLinkTesting": "https://github.com/Kynyssael/Scarlet-Corporation-Companion-App/releases/download/v0.2.2/latest.zip",
+    "DownloadLinkUpdate": "https://github.com/Kynyssael/Scarlet-Corporation-Companion-App/releases/download/v0.2.2/latest.zip",
+    "LastUpdate": 1793386564
   }
 ]
