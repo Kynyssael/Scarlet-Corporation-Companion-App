@@ -40,7 +40,10 @@ public sealed class VipList : IDisposable
     /// <summary>A change is on its way to the website.</summary>
     public bool Saving { get; private set; }
 
-    public string? Error { get; private set; }
+    /// <summary>A failed save stays up until a save works: the reload right after it doesn't clear it.</summary>
+    public string? Error => saveError ?? loadError;
+    private string? loadError;
+    private string? saveError;
     public DateTime? UpdatedAt => Vips != null ? loadedAt : null;
 
     public void Dispose()
@@ -98,12 +101,12 @@ public sealed class VipList : IDisposable
                 if (venue == plugin.Configuration.VenueSlug)
                 {
                     Vips = list;
-                    Error = null;
+                    loadError = null;
                 }
             }
             catch (Exception ex) when (!disposing.IsCancellationRequested)
             {
-                Error = ex.Message;
+                loadError = ex.Message;
             }
             finally
             {
@@ -140,11 +143,11 @@ public sealed class VipList : IDisposable
                     request.Content = JsonContent.Create(body);
                 using var response = await http.SendAsync(request, disposing.Token);
                 await EnsureOk(response);
-                Error = null;
+                saveError = null;
             }
             catch (Exception ex) when (!disposing.IsCancellationRequested)
             {
-                Error = $"Couldn't save: {ex.Message}";
+                saveError = $"Couldn't save: {ex.Message}";
             }
             finally
             {

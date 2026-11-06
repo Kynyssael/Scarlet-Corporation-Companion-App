@@ -37,7 +37,10 @@ public sealed class ShiftList : IDisposable
     public bool Saving => saving > 0;
     private int saving;
 
-    public string? Error { get; private set; }
+    /// <summary>A failed save stays up until a save works: the reload right after it doesn't clear it.</summary>
+    public string? Error => saveError ?? loadError;
+    private string? loadError;
+    private string? saveError;
     public DateTime? UpdatedAt => Shifts != null ? loadedAt : null;
 
     public void Dispose()
@@ -87,12 +90,12 @@ public sealed class ShiftList : IDisposable
                 {
                     Rates = rates;
                     Shifts = shifts;
-                    Error = null;
+                    loadError = null;
                 }
             }
             catch (Exception ex) when (!disposing.IsCancellationRequested)
             {
-                Error = ex.Message;
+                loadError = ex.Message;
             }
             finally
             {
@@ -141,11 +144,11 @@ public sealed class ShiftList : IDisposable
                     request.Content = JsonContent.Create(body, body.GetType());
                 using var response = await http.SendAsync(request, disposing.Token);
                 await EnsureOk(response);
-                Error = null;
+                saveError = null;
             }
             catch (Exception ex) when (!disposing.IsCancellationRequested)
             {
-                Error = $"Couldn't save: {ex.Message}";
+                saveError = $"Couldn't save: {ex.Message}";
             }
             finally
             {

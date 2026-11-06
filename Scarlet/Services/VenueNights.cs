@@ -30,7 +30,10 @@ public sealed class VenueNights : IDisposable
     public IReadOnlyList<NightReportDto>? Nights { get; private set; }
 
     public bool Loading { get; private set; }
-    public string? Error { get; private set; }
+    /// <summary>A failed save stays up until a save works: the reload right after it doesn't clear it.</summary>
+    public string? Error => saveError ?? loadError;
+    private string? loadError;
+    private string? saveError;
     public DateTime? UpdatedAt => Nights != null ? loadedAt : null;
 
     public void Dispose()
@@ -72,12 +75,12 @@ public sealed class VenueNights : IDisposable
                 if (venue == plugin.Configuration.VenueSlug)
                 {
                     Nights = list;
-                    Error = null;
+                    loadError = null;
                 }
             }
             catch (Exception ex) when (!disposing.IsCancellationRequested)
             {
-                Error = ex.Message;
+                loadError = ex.Message;
             }
             finally
             {
@@ -104,12 +107,12 @@ public sealed class VenueNights : IDisposable
                 await EnsureOk(response);
                 if (await response.Content.ReadFromJsonAsync<NightReportDto>(disposing.Token) is { } saved)
                     Replace(saved);
-                Error = null;
+                saveError = null;
             }
             catch (Exception ex) when (!disposing.IsCancellationRequested)
             {
                 Replace(night); // Put it back as it was.
-                Error = $"Couldn't save: {ex.Message}";
+                saveError = $"Couldn't save: {ex.Message}";
             }
         });
     }
