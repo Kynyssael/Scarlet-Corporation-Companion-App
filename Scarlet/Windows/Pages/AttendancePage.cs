@@ -28,6 +28,7 @@ public class AttendancePage(Plugin plugin)
     private string newName = string.Empty;
     private string newRole = string.Empty;
     private string newIn = DateInput.Now();
+    private bool newInTyped; // Until In is typed in, it follows the clock, so Start shift means now.
     private string newOut = string.Empty;
     private string newNote = string.Empty;
 
@@ -90,6 +91,8 @@ public class AttendancePage(Plugin plugin)
             newRole = rates[0].Name;
         var rate = rates.First(r => r.Name == newRole).Rate;
 
+        if (!newInTyped)
+            newIn = DateInput.Now();
         var start = DateInput.Parse(newIn);
         var openEnded = newOut.Trim().Length == 0;
         var end = openEnded ? null : DateInput.Parse(newOut);
@@ -138,7 +141,10 @@ public class AttendancePage(Plugin plugin)
                 RoleCombo("##shiftRole", ref newRole, rates);
 
                 ImGui.TableNextColumn();
+                var shownIn = newIn;
                 DateInput.Draw("##shiftIn", ref newIn, start);
+                if (newIn != shownIn)
+                    newInTyped = newIn != DateInput.Now(); // The clock button puts it back to following now.
 
                 ImGui.TableNextColumn();
                 OutField("##shiftOut", ref newOut, openEnded || end != null);
@@ -157,6 +163,7 @@ public class AttendancePage(Plugin plugin)
                         source.Add(newName.Trim(), newRole, from, end, newNote.Trim());
                         newName = newNote = newOut = string.Empty;
                         newIn = DateInput.Now();
+                        newInTyped = false;
                     }
                 }
             }
