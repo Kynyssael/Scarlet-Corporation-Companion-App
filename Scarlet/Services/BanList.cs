@@ -13,7 +13,7 @@ public sealed class BanList : IDisposable
     private static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(2);
 
     private readonly Plugin plugin;
-    private readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private readonly HttpClient http = new(DemoSite.Handler, disposeHandler: false) { Timeout = TimeSpan.FromSeconds(20) };
     private readonly CancellationTokenSource disposing = new();
 
     private string? loadedVenue;

@@ -23,18 +23,33 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IGameInventory GameInventory { get; private set; } = null!;
     [PluginService] internal static IToastGui ToastGui { get; private set; } = null!;
 
-    public Configuration Configuration { get; }
-    public PosService Pos { get; }
-    public WebSyncService WebSync { get; }
+    private readonly Configuration realConfig;
+    private readonly PosService realPos;
+    private Configuration? demoConfig;
+    private PosService? demoPos;
+
+    /// <summary>The saved settings; in the dev demo, a copy that's never saved.</summary>
+    public Configuration Configuration => demoConfig ?? realConfig;
+
+    /// <summary>Tonight's tallies; in the dev demo, a separate set that's thrown away.</summary>
+    public PosService Pos => demoPos ?? realPos;
+
+    /// <summary>Dev plugins only: the offline demo (see <see cref="SetDemo"/>) is on.</summary>
+    public bool Demo => demoConfig != null;
+
     public AuthService Auth { get; }
-    public ReportUploader Reports { get; }
     public GameItems GameItems { get; } = new();
-    public VenueNights VenueNights { get; }
-    public RoomLocks RoomLocks { get; }
-    public VipList Vips { get; }
-    public BanList Bans { get; }
-    public ShiftList Shifts { get; }
     public CourtBell CourtBell { get; }
+
+    // Everything that talks to the website. Made again when the demo is switched on or off, so nothing
+    // loaded from one side shows on the other.
+    public WebSyncService WebSync { get; private set; } = null!;
+    public ReportUploader Reports { get; private set; } = null!;
+    public VenueNights VenueNights { get; private set; } = null!;
+    public RoomLocks RoomLocks { get; private set; } = null!;
+    public VipList Vips { get; private set; } = null!;
+    public BanList Bans { get; private set; } = null!;
+    public ShiftList Shifts { get; private set; } = null!;
 
     public readonly WindowSystem WindowSystem = new("Scarlet");
     private MainWindow MainWindow { get; }
@@ -42,21 +57,14 @@ public sealed class Plugin : IDalamudPlugin
 
     public Plugin()
     {
-        Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
-        if (Configuration.MigrateStaffVenues())
+        realConfig = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        if (realConfig.MigrateStaffVenues())
             SaveConfig();
 
-        Pos = new PosService(this, new PosStore(PluginInterface.GetPluginConfigDirectory()));
+        realPos = new PosService(this, new PosStore(PluginInterface.GetPluginConfigDirectory()));
         Auth = new AuthService(this, PluginInterface.GetPluginConfigDirectory());
-        // Before Reports: the uploader starts sending at once and refreshes VenueNights when a night goes through.
-        VenueNights = new VenueNights(this);
-        Reports = new ReportUploader(this);
-        RoomLocks = new RoomLocks(this);
-        Vips = new VipList(this);
-        Bans = new BanList(this);
-        Shifts = new ShiftList(this);
         CourtBell = new CourtBell(this);
-        WebSync = new WebSyncService(this);
+        StartWebsiteServices();
         if (Configuration.SyncOnStartup)
             WebSync.Sync();
 
@@ -88,6 +96,35 @@ public sealed class Plugin : IDalamudPlugin
         ConfigWindow.Dispose();
         Theme.Dispose();
 
+        StopWebsiteServices();
+        CourtBell.Dispose();
+        Auth.Dispose();
+        DemoSite.On = false;
+        DemoSite.Handler.Dispose();
+        realPos.Save();
+    }
+
+    /// <summary>Saves the settings; does nothing in the demo, whose settings are thrown away.</summary>
+    public void SaveConfig()
+    {
+        if (!Demo)
+            PluginInterface.SavePluginConfig(realConfig);
+    }
+
+    private void StartWebsiteServices()
+    {
+        // Before Reports: the uploader starts sending at once and refreshes VenueNights when a night goes through.
+        VenueNights = new VenueNights(this);
+        Reports = new ReportUploader(this);
+        RoomLocks = new RoomLocks(this);
+        Vips = new VipList(this);
+        Bans = new BanList(this);
+        Shifts = new ShiftList(this);
+        WebSync = new WebSyncService(this);
+    }
+
+    private void StopWebsiteServices()
+    {
         WebSync.Dispose();
         Reports.Dispose();
         VenueNights.Dispose();
@@ -95,12 +132,57 @@ public sealed class Plugin : IDalamudPlugin
         Vips.Dispose();
         Bans.Dispose();
         Shifts.Dispose();
-        CourtBell.Dispose();
-        Auth.Dispose();
-        Pos.Save();
     }
 
-    public void SaveConfig() => PluginInterface.SavePluginConfig(Configuration);
+    /// <summary>
+    /// Dev plugins only: the offline demo. Every tab works as a manager of every venue, on sample data
+    /// answered inside the plugin (<see cref="DemoSite"/>), without staff roles or signing in. Nothing reaches
+    /// the website, and the demo's settings, tallies and changes are thrown away when it's left; the real
+    /// ones are untouched. Call on the main thread.
+    /// </summary>
+    public void SetDemo(bool on)
+    {
+        if (on == Demo || (on && !PluginInterface.IsDev))
+            return;
+
+        StopWebsiteServices();
+        if (on)
+        {
+            DemoSite.Reset();
+            var demoDirectory = Path.Combine(PluginInterface.GetPluginConfigDirectory(), "demo");
+            try
+            {
+                File.Delete(Path.Combine(demoDirectory, "pos-data.json")); // Start each demo fresh.
+            }
+            catch (IOException)
+            {
+                // Then last demo's tallies show; harmless.
+            }
+            demoConfig = new Configuration
+            {
+                WebsiteUrl = realConfig.WebsiteUrl,
+                VenueSlug = realConfig.VenueSlug,
+                VenueName = realConfig.VenueName,
+                CurrencySuffix = realConfig.CurrencySuffix,
+                EchoNightTotal = realConfig.EchoNightTotal,
+                CourtBellWarning = realConfig.CourtBellWarning,
+                CourtBellMinutes = realConfig.CourtBellMinutes,
+                CourtBellAtEnd = realConfig.CourtBellAtEnd,
+                CourtBellSound = realConfig.CourtBellSound,
+            };
+            demoPos = new PosService(this, new PosStore(demoDirectory));
+        }
+        else
+        {
+            demoConfig = null;
+            demoPos = null;
+            Auth.ViewAs = DevRole.Real;
+        }
+        DemoSite.On = on;
+        Auth.Demo = on;
+        StartWebsiteServices();
+        WebSync.Sync();
+    }
 
     public void ToggleMainUi() => MainWindow.Toggle();
     public void ToggleConfigUi() => ConfigWindow.Toggle();

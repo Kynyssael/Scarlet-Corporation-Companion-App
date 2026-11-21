@@ -16,6 +16,12 @@ public static class AccountControls
         var auth = plugin.Auth;
         var state = auth.State;
 
+        if (plugin.Demo)
+        {
+            DrawDemo(plugin);
+            return;
+        }
+
         if (state.SignedIn)
         {
             Theme.Icon(FontAwesomeIcon.UserCheck, Theme.Green);
@@ -65,6 +71,27 @@ public static class AccountControls
             ImGui.TextWrapped(auth.Status);
         else if (state is { Offline: true, CheckedAt: { } checkedAt })
             ImGui.TextDisabled($"Offline, roles from {checkedAt:g}");
+
+        if (Plugin.PluginInterface.IsDev)
+        {
+            ImGuiHelpers.ScaledDummy(2);
+            if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Flask, "Try the demo"))
+                plugin.SetDemo(true);
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip("Dev only: every tab as a manager, on sample data, without roles or signing in. Nothing is sent to the website.");
+        }
+    }
+
+    /// <summary>Dev plugins only: what the offline demo is, and the way out.</summary>
+    private static void DrawDemo(Plugin plugin)
+    {
+        Theme.Icon(FontAwesomeIcon.Flask, Theme.Amber);
+        ImGui.SameLine();
+        using (ImRaii.PushColor(ImGuiCol.Text, Theme.Amber))
+            ImGui.Text("Demo mode");
+        ImGui.TextWrapped("Sample data, answered inside the plugin: nothing reaches the website, and everything you do here is thrown away when you leave. Your real settings and tallies are untouched.");
+        if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.SignOutAlt, "Leave the demo"))
+            plugin.SetDemo(false);
     }
 
     /// <summary>Shown instead of the POS when the user can't use the selected venue: a card in the middle of the window.</summary>

@@ -232,6 +232,16 @@ Management, No role) that shows the tabs that role gets. It isn't saved and does
 in the released plugin. The website still checks your real roles, so a preview only shows
 the UI; anything your account can't really do is refused by the site.
 
+**Demo mode (dev only):** to try every feature without staff roles, or without signing in
+at all, press **Try the demo** on the sign-in card (or in Settings), or **Demo** in the top
+bar. The plugin then acts as "Demo Manager", manager of every venue, and answers its own
+website requests from sample data (`Services/DemoSite.cs`): a menu, staff, rooms, VIPs,
+bans, pay rates, shifts and past nights. You can sell, end nights, lock rooms, start and end
+shifts, renew VIPs and so on, and **View as** still previews the other roles. Nothing is
+sent to the website. The demo has its own settings and tallies, which are thrown away when
+you leave (**Leave the demo**, or reload the plugin); your real ones are never touched.
+The released plugin has no demo.
+
 Device-code sign-in isn't used because Cloudflare challenges POSTs to
 `/protocol/openid-connect/auth/*` on the Keycloak host.
 

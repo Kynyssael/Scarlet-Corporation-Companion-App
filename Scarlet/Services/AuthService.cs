@@ -95,7 +95,23 @@ public sealed class AuthService : IDisposable
     /// <summary>Raised (on a background thread) after a sign-in or role check succeeds.</summary>
     public event Action? Authenticated;
 
-    public AuthState State { get; private set; } = AuthState.SignedOut;
+    private AuthState state = AuthState.SignedOut;
+
+    /// <summary>Who is signed in; in the dev demo, a pretend manager of every venue.</summary>
+    public AuthState State
+    {
+        get => Demo ? DemoState : state;
+        private set => state = value;
+    }
+
+    /// <summary>
+    /// Dev plugins only (see <see cref="Plugin.SetDemo"/>): act as <see cref="DemoState"/> and hand out a pretend
+    /// token for <see cref="DemoSite"/>. The real session is kept, and comes back when the demo is left.
+    /// </summary>
+    public bool Demo { get; set; }
+
+    private static readonly AuthState DemoState = new(
+        DemoSite.UserName, [.. ScarletWebClient.Venues.Select(v => $"staff-{v.Slug}"), "management"], DateTime.Now, false);
     public bool Busy { get; private set; }
     public bool WaitingForBrowser { get; private set; }
     public string Status { get; private set; } = string.Empty;
@@ -182,6 +198,8 @@ public sealed class AuthService : IDisposable
     /// </summary>
     public async Task<string?> GetAccessTokenAsync(CancellationToken ct)
     {
+        if (Demo)
+            return "demo";
         await gate.WaitAsync(ct);
         try
         {
@@ -272,7 +290,7 @@ public sealed class AuthService : IDisposable
         {
             // Network trouble: keep the saved roles for a while so a Keycloak outage doesn't close the bar.
             var fresh = DateTime.Now - current.CheckedAt < OfflineGrace;
-            State = fresh ? State with { Offline = true } : AuthState.SignedOut;
+            State = fresh ? state with { Offline = true } : AuthState.SignedOut;
             Status = fresh ? "Offline: using your saved roles." : "Can't reach the sign-in server and your saved roles are too old.";
         }
     }

@@ -22,7 +22,7 @@ public sealed partial class ScarletWebClient : IDisposable
         ("scarlet-unholy-water", "Scarlet Unholy Water"),
     ];
 
-    private readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(15) };
+    private readonly HttpClient http = new(DemoSite.Handler, disposeHandler: false) { Timeout = TimeSpan.FromSeconds(15) };
 
     public void Dispose() => http.Dispose();
 

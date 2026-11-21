@@ -20,7 +20,7 @@ public sealed class VipList : IDisposable
     public static readonly string[] Tiers = [Monthly, Yearly, Lifetime];
 
     private readonly Plugin plugin;
-    private readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private readonly HttpClient http = new(DemoSite.Handler, disposeHandler: false) { Timeout = TimeSpan.FromSeconds(20) };
     private readonly CancellationTokenSource disposing = new();
 
     private string? loadedVenue;

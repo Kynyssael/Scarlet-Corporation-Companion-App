@@ -113,6 +113,8 @@ public class MainWindow : Window, IDisposable
         {
             ImGui.SameLine();
             DrawViewAs();
+            ImGui.SameLine();
+            DrawDemoToggle();
         }
 
         if (plugin.WebSync.Syncing)
@@ -183,6 +185,21 @@ public class MainWindow : Window, IDisposable
         }
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Dev only: show the plugin as this role sees it. The website still checks your real roles.");
+    }
+
+    /// <summary>Dev plugins only: in and out of the offline demo.</summary>
+    private void DrawDemoToggle()
+    {
+        var demo = plugin.Demo;
+        using (ImRaii.PushColor(ImGuiCol.Text, Theme.Amber, demo))
+        {
+            if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Flask, demo ? "Demo: leave" : "Demo"))
+                plugin.SetDemo(!demo);
+        }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip(demo
+                ? "You're in the demo: sample data, nothing reaches the website. Click to go back to your real account."
+                : "Dev only: every tab as a manager, on sample data, without roles or signing in. Nothing is sent to the website.");
     }
 
     private static void DrawPage(string label, Action draw)

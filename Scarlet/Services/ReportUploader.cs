@@ -17,7 +17,7 @@ public sealed class ReportUploader : IDisposable
     private static readonly TimeSpan RetryInterval = TimeSpan.FromMinutes(5);
 
     private readonly Plugin plugin;
-    private readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private readonly HttpClient http = new(DemoSite.Handler, disposeHandler: false) { Timeout = TimeSpan.FromSeconds(20) };
     private readonly CancellationTokenSource disposing = new();
     private readonly SemaphoreSlim wake = new(0);
     private readonly SemaphoreSlim running = new(1, 1);
